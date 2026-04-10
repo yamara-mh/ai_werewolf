@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI人狼 – ゲーム</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="site-header__title">🐺 AI人狼</span>
+    <a href="index.html" class="btn btn--secondary" style="margin-left:auto; font-size:0.8rem;">
+      ← ロビーに戻る
+    </a>
+  </header>
+
+  <div class="game-layout">
+
+    <!-- ゲーム情報バー -->
+    <div class="game-header">
+      <span id="phase-label" class="game-header__phase">準備中…</span>
+      <span id="day-label" class="game-header__day"></span>
+      <span id="role-label" class="game-header__role"></span>
+    </div>
+
+    <!-- BBS エリア -->
+    <div class="bbs-area">
+      <div id="bbs-container"></div>
+    </div>
+
+    <!-- アクションエリア -->
+    <div id="action-area" class="action-area"></div>
+
+    <!-- サイドバー：プレイヤー一覧 -->
+    <aside class="sidebar">
+      <div class="sidebar__title">👥 プレイヤー</div>
+      <div id="player-list"></div>
+    </aside>
+
+  </div>
+
+  <!-- ゲーム終了モーダル -->
+  <div id="end-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 class="modal__title">ゲーム終了</h2>
+      <div id="end-message"></div>
+      <button id="restart-btn" class="btn btn--primary mt-2">もう一度遊ぶ</button>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/bbs.js"></script>
+  <script src="js/controller.js"></script>
+</body>
+</html>
