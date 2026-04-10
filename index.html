@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI人狼 – ロビー</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="site-header__title">🐺 AI人狼</span>
+    <span class="site-header__sub">AIと遊ぶ電子掲示板人狼ゲーム</span>
+  </header>
+
+  <main class="lobby">
+    <h1 class="lobby__title">AI 人狼</h1>
+    <p class="lobby__subtitle">電子掲示板で繰り広げられる推理と欺きのゲーム</p>
+
+    <button id="resume-btn" class="btn btn--secondary" style="display:none; width:100%; margin-bottom:16px;">
+      ▶ 途中のゲームを再開する
+    </button>
+
+    <!-- ゲーム設定フォーム -->
+    <form id="setup-form">
+      <div class="card">
+        <h2 class="card__title">🎮 プレイヤー設定</h2>
+
+        <div class="form-group">
+          <label for="player-name">あなたの名前</label>
+          <input
+            type="text"
+            id="player-name"
+            class="form-control"
+            placeholder="村人A"
+            maxlength="16"
+            value="あなた"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="player-count">プレイヤー人数（AIを含む）</label>
+          <select id="player-count" class="form-control">
+            <option value="8" selected>8人</option>
+            <option value="9">9人</option>
+            <option value="10">10人</option>
+            <option value="11">11人</option>
+            <option value="12">12人</option>
+            <option value="13">13人</option>
+            <option value="14">14人</option>
+            <option value="15">15人</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="werewolf-count">人狼の人数</label>
+          <select id="werewolf-count" class="form-control">
+            <option value="1">1人</option>
+            <option value="2" selected>2人</option>
+            <option value="3">3人</option>
+            <option value="4">4人</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>追加役職（人数が足りない場合は自動で除外）</label>
+          <div class="role-options">
+            <label class="role-option"><input type="checkbox" name="optional-role" value="seer" checked /> 🔮 占い師</label>
+            <label class="role-option"><input type="checkbox" name="optional-role" value="medium" checked /> 🪬 霊媒師</label>
+            <label class="role-option"><input type="checkbox" name="optional-role" value="hunter" checked /> 🛡️ 騎士</label>
+            <label class="role-option"><input type="checkbox" name="optional-role" value="baker" /> 🥖 パン屋</label>
+            <label class="role-option"><input type="checkbox" name="optional-role" value="fox" /> 🦊 妖狐</label>
+            <label class="role-option"><input type="checkbox" name="optional-role" value="shared" /> 🤝 共有者</label>
+            <label class="role-option"><input type="checkbox" name="optional-role" value="cat" /> 🐈 猫又</label>
+            <label class="role-option"><input type="checkbox" name="optional-role" value="white_wolf" /> 🐺 白狼</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>役職構成プレビュー</label>
+          <div id="role-preview" class="role-preview"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card__title">🤖 AI設定（オプション）</h2>
+        <p class="text-muted mt-1">
+          OpenAI / Gemini のAPI Keyを設定すると、AIが本格的な発言・推理を行います。<br>
+          設定しない場合はサンプル発言でゲームを進行できます。
+        </p>
+
+        <div class="form-group mt-2">
+          <label for="api-key">API Key</label>
+          <div class="input-group">
+            <input
+              type="password"
+              id="api-key"
+              class="form-control"
+              placeholder="sk-..."
+              autocomplete="off"
+            />
+            <button type="button" id="toggle-api-key" class="btn btn--secondary">表示</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="ai-model">AIモデル</label>
+          <select id="ai-model" class="form-control">
+            <option value="gpt-4o-mini" selected>gpt-4o-mini（高速・低コスト）</option>
+            <option value="gpt-4o">gpt-4o（高品質）</option>
+            <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+            <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn--start">🎲 ゲーム開始</button>
+    </form>
+
+    <!-- ルール説明 -->
+    <div class="card mt-2">
+      <h2 class="card__title">📖 役職一覧</h2>
+      <div class="rules-grid">
+        <div class="role-card role-card--village">
+          <div class="role-card__name">👤 村人</div>
+          <div class="role-card__desc">特殊能力なし。議論と投票で人狼を追放せよ。</div>
+        </div>
+        <div class="role-card role-card--village">
+          <div class="role-card__name">🔮 占い師</div>
+          <div class="role-card__desc">毎夜、一人の役職を占える。</div>
+        </div>
+        <div class="role-card role-card--village">
+          <div class="role-card__name">🪬 霊媒師</div>
+          <div class="role-card__desc">処刑者の役職が判明する。</div>
+        </div>
+        <div class="role-card role-card--village">
+          <div class="role-card__name">🛡️ 騎士</div>
+          <div class="role-card__desc">毎夜、一人を人狼から守る。</div>
+        </div>
+        <div class="role-card role-card--werewolf">
+          <div class="role-card__name">🐺 人狼</div>
+          <div class="role-card__desc">毎夜、村人を一人襲撃する。</div>
+        </div>
+        <div class="role-card role-card--werewolf">
+          <div class="role-card__name">🃏 狂人</div>
+          <div class="role-card__desc">人狼の仲間。村人に見える。</div>
+        </div>
+        <div class="role-card role-card--village">
+          <div class="role-card__name">🥖 パン屋</div>
+          <div class="role-card__desc">村人陣営。特別な夜行動はなし。</div>
+        </div>
+        <div class="role-card role-card--village">
+          <div class="role-card__name">🦊 妖狐</div>
+          <div class="role-card__desc">村人陣営として扱われる特殊役職。</div>
+        </div>
+        <div class="role-card role-card--village">
+          <div class="role-card__name">🤝 共有者</div>
+          <div class="role-card__desc">村人陣営。議論で連携する役職。</div>
+        </div>
+        <div class="role-card role-card--village">
+          <div class="role-card__name">🐈 猫又</div>
+          <div class="role-card__desc">村人陣営の特殊役職。</div>
+        </div>
+        <div class="role-card role-card--werewolf">
+          <div class="role-card__name">🐺 白狼</div>
+          <div class="role-card__desc">人狼陣営の特殊役職。</div>
+        </div>
+      </div>
+
+      <div class="mt-2 text-muted">
+        <strong>勝利条件</strong><br>
+        村人陣営：人狼を全員追放する。<br>
+        人狼陣営：生存者に占める人狼の数が村人以上になる。
+      </div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
