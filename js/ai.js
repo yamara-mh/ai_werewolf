@@ -135,7 +135,7 @@ ${recentPosts || '（発言なし）'}
   _buildNightActionPrompt(aiPlayer, candidates) {
     const role = aiPlayer.role;
     let actionDesc = '';
-    if (role?.id === ROLES.WEREWOLF.id) actionDesc = '今夜襲撃する村人を選んでください。';
+    if (isWerewolfRole(role)) actionDesc = '今夜襲撃する村人を選んでください。';
     else if (role?.id === ROLES.SEER.id) actionDesc = '今夜占うプレイヤーを選んでください。';
     else if (role?.id === ROLES.HUNTER.id) actionDesc = '今夜護衛するプレイヤーを選んでください。';
     else actionDesc = '夜のアクション対象を選んでください。';
@@ -149,6 +149,39 @@ ${recentPosts || '（発言なし）'}
   // --- APIコール ---
 
   async _callAPI(systemPrompt, userPrompt, apiKey, model) {
+    if ((model || '').startsWith('gemini')) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: `System:\n${systemPrompt}\n\nUser:\n${userPrompt}` }],
+              },
+            ],
+            generationConfig: {
+              maxOutputTokens: 200,
+              temperature: 0.8,
+            },
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(`Gemini API Error ${res.status}: ${err.error?.message || res.statusText}`);
+      }
+
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text).join('\n').trim();
+      return text || '';
+    }
+
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -214,7 +247,7 @@ ${recentPosts || '（発言なし）'}
   _fallbackNightAction(aiPlayer, candidates) {
     if (candidates.length === 0) return null;
     // 人狼は人間プレイヤーを優先して狙う
-    if (aiPlayer.role?.id === ROLES.WEREWOLF.id) {
+    if (isWerewolfRole(aiPlayer.role)) {
       const humanTarget = candidates.find((p) => p.isHuman);
       if (humanTarget) return humanTarget;
     }

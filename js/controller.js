@@ -133,8 +133,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     actionArea.innerHTML = `
       <form id="chat-form" class="chat-form">
         <textarea id="chat-input" class="chat-input" placeholder="発言を入力してください..." rows="3" maxlength="300"></textarea>
-        <button type="submit" id="chat-submit" class="btn btn--primary">発言する</button>
-        <button type="button" id="skip-btn" class="btn btn--secondary">スキップ</button>
+        <div class="chat-actions">
+          <button type="submit" id="chat-submit" class="btn btn--primary">発言する</button>
+          <button type="button" id="skip-btn" class="btn btn--secondary">スキップ</button>
+        </div>
       </form>`;
 
     const form = document.getElementById('chat-form');
@@ -331,7 +333,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (humanPlayer.isAlive) {
       const humanRole = humanPlayer.role;
       if (
-        humanRole?.id === ROLES.WEREWOLF.id ||
+        isWerewolfRole(humanRole) ||
         humanRole?.id === ROLES.SEER.id ||
         humanRole?.id === ROLES.HUNTER.id
       ) {
@@ -391,7 +393,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const alivePlayers = gs.getAlivePlayers();
 
       let label = '';
-      if (humanRole?.id === ROLES.WEREWOLF.id) label = '🐺 今夜、誰を襲撃しますか？';
+      if (isWerewolfRole(humanRole)) label = '🐺 今夜、誰を襲撃しますか？';
       else if (humanRole?.id === ROLES.SEER.id) label = '🔮 今夜、誰を占いますか？';
       else if (humanRole?.id === ROLES.HUNTER.id) label = '🛡️ 今夜、誰を護衛しますか？';
 

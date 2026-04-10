@@ -11,7 +11,9 @@ class GameState {
     this.winner = null;
     this.settings = {
       playerName: 'あなた',
-      totalPlayers: 5,
+      totalPlayers: 8,
+      werewolfCount: 2,
+      optionalRoles: [ROLES.SEER.id, ROLES.MEDIUM.id, ROLES.HUNTER.id],
       aiApiKey: '',
       aiModel: 'gpt-4o-mini',
     };
@@ -61,7 +63,9 @@ class GameState {
 
   _assignRoles() {
     const total = this.settings.totalPlayers;
-    const preset = ROLE_PRESETS[total] || ROLE_PRESETS[5];
+    const werewolfCount = this.settings.werewolfCount;
+    const optionalRoles = this.settings.optionalRoles || [];
+    const preset = buildRoleDeck(total, werewolfCount, optionalRoles);
     const shuffled = [...preset].sort(() => Math.random() - 0.5);
     this.players.forEach((player, index) => {
       player.role = shuffled[index] || ROLES.VILLAGER;
@@ -163,7 +167,7 @@ class GameState {
 
     // 人狼の襲撃先
     const wolves = this.players.filter(
-      (p) => p.role?.id === ROLES.WEREWOLF.id && p.isAlive
+      (p) => isWerewolfRole(p.role) && p.isAlive
     );
     const attackTargets = wolves
       .map((w) => this.nightActions[w.id])

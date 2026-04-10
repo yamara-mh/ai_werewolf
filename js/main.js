@@ -3,6 +3,8 @@
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('setup-form');
   const playerCountSelect = document.getElementById('player-count');
+  const werewolfCountSelect = document.getElementById('werewolf-count');
+  const optionalRoleInputs = Array.from(document.querySelectorAll('input[name="optional-role"]'));
   const rolePreviewEl = document.getElementById('role-preview');
   const apiKeyInput = document.getElementById('api-key');
   const toggleApiKey = document.getElementById('toggle-api-key');
@@ -19,7 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // 役職プレビュー更新
   function updateRolePreview() {
     const count = parseInt(playerCountSelect.value, 10);
-    const preset = ROLE_PRESETS[count] || ROLE_PRESETS[5];
+    const werewolfCount = parseInt(werewolfCountSelect?.value || '2', 10);
+    const optionalRoleIds = optionalRoleInputs
+      .filter((input) => input.checked)
+      .map((input) => input.value);
+    const preset = buildRoleDeck(count, werewolfCount, optionalRoleIds);
     const roleCounts = {};
     preset.forEach((role) => {
       roleCounts[role.name] = (roleCounts[role.name] || 0) + 1;
@@ -37,8 +43,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (playerCountSelect) {
     playerCountSelect.addEventListener('change', updateRolePreview);
-    updateRolePreview();
   }
+  if (werewolfCountSelect) {
+    werewolfCountSelect.addEventListener('change', updateRolePreview);
+  }
+  optionalRoleInputs.forEach((input) => input.addEventListener('change', updateRolePreview));
+  updateRolePreview();
 
   // フォーム送信
   if (form) {
@@ -48,6 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const settings = {
         playerName: document.getElementById('player-name').value.trim() || 'あなた',
         totalPlayers: parseInt(playerCountSelect.value, 10),
+        werewolfCount: parseInt(werewolfCountSelect?.value || '2', 10),
+        optionalRoles: optionalRoleInputs
+          .filter((input) => input.checked)
+          .map((input) => input.value),
         aiApiKey: apiKeyInput ? apiKeyInput.value.trim() : '',
         aiModel: document.getElementById('ai-model')?.value || 'gpt-4o-mini',
       };

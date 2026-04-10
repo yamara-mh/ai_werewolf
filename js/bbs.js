@@ -140,7 +140,7 @@ function renderNightPanel(role, alivePlayers, excludeId, containerId = 'night-pa
   if (!container) return;
 
   let label = '';
-  if (role?.id === ROLES.WEREWOLF.id) label = '🐺 今夜、誰を襲撃しますか？';
+  if (isWerewolfRole(role)) label = '🐺 今夜、誰を襲撃しますか？';
   else if (role?.id === ROLES.SEER.id) label = '🔮 今夜、誰を占いますか？';
   else if (role?.id === ROLES.HUNTER.id) label = '🛡️ 今夜、誰を護衛しますか？';
   else {

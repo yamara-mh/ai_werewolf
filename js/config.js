@@ -36,6 +36,41 @@ const ROLES = {
     description: '毎晩、一人のプレイヤーを人狼の襲撃から守れます。',
     icon: '🛡️',
   },
+  BAKER: {
+    id: 'baker',
+    name: 'パン屋',
+    team: 'village',
+    description: '村人陣営。特別な夜行動はありません。',
+    icon: '🥖',
+  },
+  FOX: {
+    id: 'fox',
+    name: '妖狐',
+    team: 'village',
+    description: '村人陣営として扱われます。特別な夜行動はありません。',
+    icon: '🦊',
+  },
+  SHARED: {
+    id: 'shared',
+    name: '共有者',
+    team: 'village',
+    description: '村人陣営。特別な夜行動はありません。',
+    icon: '🤝',
+  },
+  CAT: {
+    id: 'cat',
+    name: '猫又',
+    team: 'village',
+    description: '村人陣営。特別な夜行動はありません。',
+    icon: '🐈',
+  },
+  WHITE_WOLF: {
+    id: 'white_wolf',
+    name: '白狼',
+    team: 'werewolf',
+    description: '人狼陣営。夜に村人を襲撃できます。',
+    icon: '🐺',
+  },
   MADMAN: {
     id: 'madman',
     name: '狂人',
@@ -60,14 +95,57 @@ const TEAMS = {
   WEREWOLF: 'werewolf',
 };
 
-// プリセット構成 (players count -> roles)
-const ROLE_PRESETS = {
-  4: [ROLES.VILLAGER, ROLES.VILLAGER, ROLES.SEER, ROLES.WEREWOLF],
-  5: [ROLES.VILLAGER, ROLES.VILLAGER, ROLES.VILLAGER, ROLES.SEER, ROLES.WEREWOLF],
-  6: [ROLES.VILLAGER, ROLES.VILLAGER, ROLES.SEER, ROLES.WEREWOLF, ROLES.WEREWOLF, ROLES.MADMAN],
-  7: [ROLES.VILLAGER, ROLES.VILLAGER, ROLES.VILLAGER, ROLES.SEER, ROLES.MEDIUM, ROLES.WEREWOLF, ROLES.WEREWOLF],
-  8: [ROLES.VILLAGER, ROLES.VILLAGER, ROLES.VILLAGER, ROLES.SEER, ROLES.MEDIUM, ROLES.HUNTER, ROLES.WEREWOLF, ROLES.WEREWOLF],
-};
+const OPTIONAL_ROLE_ORDER = [
+  ROLES.SEER.id,
+  ROLES.MEDIUM.id,
+  ROLES.HUNTER.id,
+  ROLES.BAKER.id,
+  ROLES.FOX.id,
+  ROLES.SHARED.id,
+  ROLES.CAT.id,
+  ROLES.WHITE_WOLF.id,
+];
+
+function isWerewolfRole(role) {
+  return role?.team === TEAMS.WEREWOLF;
+}
+
+function buildRoleDeck(totalPlayers, werewolfCount, optionalRoleIds = []) {
+  const total = Number(totalPlayers) || 8;
+  const wolfCount = Math.min(Math.max(Number(werewolfCount) || 1, 1), Math.max(1, total - 1));
+  const requested = new Set(optionalRoleIds);
+  const roleById = Object.values(ROLES).reduce((map, role) => {
+    map[role.id] = role;
+    return map;
+  }, {});
+
+  const selected = OPTIONAL_ROLE_ORDER.filter((roleId) => requested.has(roleId));
+
+  const roles = Array.from({ length: wolfCount }, () => ROLES.WEREWOLF);
+  let villagers = Math.max(0, total - roles.length);
+
+  for (const roleId of selected) {
+    if (villagers <= 0) break;
+    if (roleId === ROLES.WHITE_WOLF.id) {
+      const wolfIndex = roles.findIndex((role) => role.id === ROLES.WEREWOLF.id);
+      if (wolfIndex >= 0) {
+        roles[wolfIndex] = ROLES.WHITE_WOLF;
+      }
+      continue;
+    }
+
+    const role = roleById[roleId];
+    if (!role) continue;
+    roles.push(role);
+    villagers -= 1;
+  }
+
+  while (roles.length < total) {
+    roles.push(ROLES.VILLAGER);
+  }
+
+  return roles;
+}
 
 const AI_PERSONALITIES = [
   { name: 'アリス', style: '論理的・慎重' },
