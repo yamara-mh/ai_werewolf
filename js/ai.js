@@ -149,7 +149,8 @@ ${recentPosts || '（発言なし）'}
   // --- APIコール ---
 
   async _callAPI(systemPrompt, userPrompt, apiKey, model) {
-    if ((model || '').startsWith('gemini')) {
+    const geminiModels = new Set(['gemini-2.5-flash', 'gemini-2.5-pro']);
+    if (geminiModels.has(model)) {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
         {

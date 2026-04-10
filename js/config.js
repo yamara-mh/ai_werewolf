@@ -112,7 +112,9 @@ function isWerewolfRole(role) {
 
 function buildRoleDeck(totalPlayers, werewolfCount, optionalRoleIds = []) {
   const total = Number(totalPlayers) || 8;
-  const wolfCount = Math.min(Math.max(Number(werewolfCount) || 1, 1), Math.max(1, total - 1));
+  const requestedWolves = Number(werewolfCount) || 1;
+  const maxWolves = Math.max(1, total - 1);
+  const wolfCount = Math.min(Math.max(requestedWolves, 1), maxWolves);
   const requested = new Set(optionalRoleIds);
   const roleById = Object.values(ROLES).reduce((map, role) => {
     map[role.id] = role;

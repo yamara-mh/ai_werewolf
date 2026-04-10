@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <textarea id="chat-input" class="chat-input" placeholder="発言を入力してください..." rows="3" maxlength="300"></textarea>
         <div class="chat-actions">
           <button type="submit" id="chat-submit" class="btn btn--primary">発言する</button>
-          <button type="button" id="skip-btn" class="btn btn--secondary">スキップ</button>
+          <button type="button" id="skip-btn" class="btn btn--secondary" aria-label="発言をスキップ">スキップ</button>
         </div>
       </form>`;
 
