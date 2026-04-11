@@ -220,9 +220,7 @@ class AIPlayer {
 性格・スタイル: ${aiPlayer.personality}
 役職: ${role?.name || '不明'}（${role?.description || ''}）
 チーム: ${isWolf ? '人狼陣営' : '村人陣営'}
-${isWolf && teammates ? `仲間の人狼: ${teammates}` : ''}
-${roomLevelPrompt}
-ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く（1〜3文）発言してください。
+${isWolf && teammates ? `仲間の人狼: ${teammates}\n` : ''}${roomLevelPrompt ? `${roomLevelPrompt}\n` : ''}ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く（1〜3文）発言してください。
 役職は絶対に明かさないでください（占い師が公開する場合を除く）。
 ゲームを楽しく盛り上げるよう心がけてください。${logicAiSection}`;
   }
