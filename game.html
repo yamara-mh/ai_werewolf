@@ -8,13 +8,6 @@
 </head>
 <body>
 
-  <header class="site-header">
-    <span class="site-header__title">🐺 AI人狼</span>
-    <a href="index.html" class="btn btn--secondary" style="margin-left:auto; font-size:0.8rem;">
-      ← ロビーに戻る
-    </a>
-  </header>
-
   <div class="game-layout">
 
     <!-- ゲーム情報バー -->
@@ -29,8 +22,33 @@
       <div id="bbs-container"></div>
     </div>
 
-    <!-- アクションエリア -->
+    <!-- アクションエリア（投票・夜行動など） -->
     <div id="action-area" class="action-area"></div>
+
+    <!-- 常時表示チャット入力エリア -->
+    <div class="chat-bar">
+      <form id="chat-form" class="chat-form">
+        <div class="chat-form__top">
+          <select id="co-role-select" class="form-control co-role-select">
+            <option value="">役職CO: なし</option>
+            <option value="villager">👤 村人</option>
+            <option value="werewolf">🐺 人狼</option>
+            <option value="seer">🔮 占い師</option>
+            <option value="medium">🪬 霊媒師</option>
+            <option value="hunter">🛡️ 騎士</option>
+            <option value="baker">🥖 パン屋</option>
+            <option value="fox">🦊 妖狐</option>
+            <option value="shared">🤝 共有者</option>
+            <option value="cat">🐈 猫又</option>
+            <option value="madman">🃏 狂人</option>
+          </select>
+        </div>
+        <div class="chat-form__bottom">
+          <textarea id="chat-input" class="chat-input" placeholder="発言を入力してください..." rows="2" maxlength="300"></textarea>
+          <button type="submit" id="chat-submit" class="btn btn--primary">発言</button>
+        </div>
+      </form>
+    </div>
 
     <!-- サイドバー：プレイヤー一覧 -->
     <aside class="sidebar">

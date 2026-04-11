@@ -45,6 +45,7 @@ class GameState {
       isAlive: true,
       isHuman: true,
       personality: null,
+      coRole: null,
     });
 
     // AIプレイヤー
@@ -57,6 +58,7 @@ class GameState {
         isAlive: true,
         isHuman: false,
         personality: p.style,
+        coRole: null,
       });
     }
   }
@@ -73,7 +75,7 @@ class GameState {
   }
 
   // BBS投稿を追加
-  addPost({ playerName, content, type = 'speech', playerId = null }) {
+  addPost({ playerName, content, type = 'speech', playerId = null, coRole = null }) {
     const post = {
       id: this.bbsLog.length + 1,
       postNumber: this.bbsLog.length + 1,
@@ -84,6 +86,7 @@ class GameState {
       day: this.day,
       type, // 'speech' | 'system' | 'vote' | 'result' | 'whisper'
       timestamp: new Date().toLocaleTimeString('ja-JP'),
+      coRole,
     };
     this.bbsLog.push(post);
     return post;
