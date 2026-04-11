@@ -20,15 +20,16 @@ class BBS {
           <span class="bbs-post__content">${this._escape(post.content)}</span>
         </div>`;
     } else {
-      const dayLabel = post.day > 0 ? `${post.day}日目` : '';
-      const phaseLabel = this._phaseLabel(post.phase);
+      const roleObj = post.coRole
+        ? Object.values(ROLES).find((r) => r.id === post.coRole)
+        : null;
+      const roleSuffix = roleObj ? ` ${roleObj.icon}` : '';
+      const nameDisplay = `${this._escape(post.playerName)}${roleSuffix}`;
       el.innerHTML = `
-        <div class="bbs-post__header">
-          <span class="bbs-post__number">${post.postNumber}</span>
-          <span class="bbs-post__name">${this._escape(post.playerName)}</span>
-          <span class="bbs-post__meta">${dayLabel} ${phaseLabel} ${post.timestamp}</span>
-        </div>
-        <div class="bbs-post__body">${this._escape(post.content)}</div>`;
+        <div class="bbs-post__row">
+          <span class="bbs-post__name">${nameDisplay}</span>
+          <span class="bbs-post__body">${this._escape(post.content)}</span>
+        </div>`;
     }
 
     this.container.appendChild(el);
@@ -110,9 +111,16 @@ function renderPlayerList(players, containerId = 'player-list') {
     const badge = player.isHuman ? '<span class="badge badge--human">あなた</span>' : '';
     const deadMark = player.isAlive ? '' : '<span class="badge badge--dead">死亡</span>';
 
+    const coRoleObj = player.coRole
+      ? Object.values(ROLES).find((r) => r.id === player.coRole)
+      : null;
+    const coRoleBadge = coRoleObj
+      ? `<span class="badge badge--co">${coRoleObj.icon} ${coRoleObj.name}</span>`
+      : '';
+
     el.innerHTML = `
       <span class="player-card__name">${escapeHtml(player.name)}</span>
-      ${badge}${deadMark}`;
+      ${coRoleBadge}${badge}${deadMark}`;
     container.appendChild(el);
   });
 }

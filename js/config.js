@@ -138,6 +138,16 @@ function buildRoleDeck(totalPlayers, werewolfCount, optionalRoleIds = []) {
 
     const role = roleById[roleId];
     if (!role) continue;
+
+    // 共有者は2人1組で追加
+    if (roleId === ROLES.SHARED.id) {
+      if (villagers >= 2) {
+        roles.push(role, role);
+        villagers -= 2;
+      }
+      continue;
+    }
+
     roles.push(role);
     villagers -= 1;
   }

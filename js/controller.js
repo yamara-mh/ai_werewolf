@@ -17,17 +17,58 @@ document.addEventListener('DOMContentLoaded', async () => {
   const dayLabel = document.getElementById('day-label');
   const roleLabel = document.getElementById('role-label');
   const actionArea = document.getElementById('action-area');
-  const chatForm = document.getElementById('chat-form');
-  const chatInput = document.getElementById('chat-input');
-  const chatSubmit = document.getElementById('chat-submit');
   const endModal = document.getElementById('end-modal');
   const endMessage = document.getElementById('end-message');
   const restartBtn = document.getElementById('restart-btn');
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const coRoleSelect = document.getElementById('co-role-select');
+
+  // 人間が昼フェーズで1回目の発言を済ませたかフラグ
+  let dayFirstPosted = false;
+
+  // --- 永続チャットフォームのイベント設定 ---
+  if (chatForm) {
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = chatInput ? chatInput.value.trim() : '';
+      if (!text) return;
+
+      // CO役職の更新
+      const coRoleId = coRoleSelect ? coRoleSelect.value : '';
+      if (humanPlayer) {
+        humanPlayer.coRole = coRoleId || null;
+      }
+
+      const post = gs.addPost({
+        playerName: humanPlayer.name,
+        playerId: humanPlayer.id,
+        content: text,
+        coRole: humanPlayer.coRole,
+      });
+      bbs.renderPost(post);
+      if (chatInput) chatInput.value = '';
+      renderPlayerList(gs.players);
+      gs.save();
+
+      // 昼フェーズで最初の発言なら次のフェーズ処理を開始
+      if (gs.phase === GAME_PHASES.DAY && !dayFirstPosted) {
+        dayFirstPosted = true;
+        if (actionArea) actionArea.innerHTML = '';
+        await afterHumanSpeech();
+      }
+    });
+  }
 
   // --- 初期描画 ---
   renderPlayerList(gs.players);
   bbs.renderAll(gs.bbsLog);
   updateHeader();
+
+  // CO セレクトを humanPlayer の現在の coRole に合わせる
+  if (coRoleSelect && humanPlayer?.coRole) {
+    coRoleSelect.value = humanPlayer.coRole;
+  }
 
   // ゲームが初めて始まる場合（朝フェーズへ）
   if (gs.phase === GAME_PHASES.SETUP) {
@@ -57,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     switch (gs.phase) {
       case GAME_PHASES.DAY:
-        showChatPanel();
+        showDaySkipButton();
         break;
       case GAME_PHASES.VOTE:
         showVotePanel();
@@ -113,57 +154,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function runDay() {
     bbs.renderPhaseHeader(gs.day, gs.phase);
     updateHeader();
+    dayFirstPosted = false;
 
-    // AIが順番に発言（人間の前後にランダムに配置）
+    // AIが順番に発言（前半）
     const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
     const firstHalf = aiPlayers.slice(0, Math.ceil(aiPlayers.length / 2));
-    const secondHalf = aiPlayers.slice(Math.ceil(aiPlayers.length / 2));
 
     await runAISpeeches(firstHalf);
-    showChatPanel(true); // 人間が発言できる
+
+    // 人間の発言を促す（スキップボタンをアクションエリアに表示）
+    showDaySkipButton();
     gs.save();
-    // 人間の発言後に続きのAI発言はchatFormのsubmitで処理
   }
 
-  // --- チャットパネル表示 ---
-  function showChatPanel(isFirstTime = false) {
+  // --- 昼フェーズ：スキップボタンを表示 ---
+  function showDaySkipButton() {
     if (!actionArea) return;
-    if (document.getElementById('chat-form')) return; // 既に表示中
-
-    actionArea.innerHTML = `
-      <form id="chat-form" class="chat-form">
-        <textarea id="chat-input" class="chat-input" placeholder="発言を入力してください..." rows="3" maxlength="300"></textarea>
-        <div class="chat-actions">
-          <button type="submit" id="chat-submit" class="btn btn--primary">発言する</button>
-          <button type="button" id="skip-btn" class="btn btn--secondary" aria-label="発言をスキップ">スキップ</button>
-        </div>
-      </form>`;
-
-    const form = document.getElementById('chat-form');
-    const skipBtn = document.getElementById('skip-btn');
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const input = document.getElementById('chat-input');
-      const text = input.value.trim();
-      if (!text) return;
-      disableChatForm();
-
-      const post = gs.addPost({
-        playerName: humanPlayer.name,
-        playerId: humanPlayer.id,
-        content: text,
-      });
-      bbs.renderPost(post);
-      input.value = '';
-      gs.save();
-      await afterHumanSpeech();
-    });
-
+    actionArea.innerHTML = '';
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'btn btn--secondary';
+    skipBtn.textContent = '発言をスキップ';
+    skipBtn.id = 'skip-btn';
     skipBtn.addEventListener('click', async () => {
-      disableChatForm();
+      if (dayFirstPosted) return;
+      dayFirstPosted = true;
+      actionArea.innerHTML = '';
       await afterHumanSpeech();
     });
+    actionArea.appendChild(skipBtn);
   }
 
   async function afterHumanSpeech() {
@@ -192,6 +210,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         playerName: player.name,
         playerId: player.id,
         content: speech,
+        coRole: player.coRole,
       });
       bbs.renderPost(post);
       gs.save();
@@ -214,6 +233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           playerId: player.id,
           content: `${target.name} に投票します。`,
           type: 'vote',
+          coRole: player.coRole,
         });
         bbs.renderPost(post);
         await sleep(400);
@@ -244,6 +264,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             playerId: humanPlayer.id,
             content: `${player.name} に投票します。`,
             type: 'vote',
+            coRole: humanPlayer.coRole,
           });
           bbs.renderPost(post);
           actionArea.innerHTML = '';
@@ -458,13 +479,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // --- ユーティリティ ---
-  function disableChatForm() {
-    const form = document.getElementById('chat-form');
-    if (form) {
-      form.querySelectorAll('button, textarea').forEach((el) => (el.disabled = true));
-    }
-  }
-
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
