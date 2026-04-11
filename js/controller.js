@@ -51,7 +51,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderPlayerList(gs.players);
       gs.save();
 
-      // 昼フェーズで最初の発言なら次のフェーズ処理を開始
+      // 昼フェーズで最初の発言なら次のフェーズ処理（AI後半→投票）を開始
+      // その他のフェーズでは発言は掲示板に追加されるのみで進行には影響しない
       if (gs.phase === GAME_PHASES.DAY && !dayFirstPosted) {
         dayFirstPosted = true;
         if (actionArea) actionArea.innerHTML = '';

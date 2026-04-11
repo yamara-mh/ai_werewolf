@@ -1,5 +1,11 @@
 // BBS（電子掲示板）UI レンダリング
 
+// 役職IDから役職オブジェクトを高速に引ける静的マップ
+const ROLE_BY_ID = Object.values(ROLES).reduce((map, role) => {
+  map[role.id] = role;
+  return map;
+}, {});
+
 class BBS {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
@@ -20,9 +26,7 @@ class BBS {
           <span class="bbs-post__content">${this._escape(post.content)}</span>
         </div>`;
     } else {
-      const roleObj = post.coRole
-        ? Object.values(ROLES).find((r) => r.id === post.coRole)
-        : null;
+      const roleObj = post.coRole ? ROLE_BY_ID[post.coRole] : null;
       const roleSuffix = roleObj ? ` ${roleObj.icon}` : '';
       const nameDisplay = `${this._escape(post.playerName)}${roleSuffix}`;
       el.innerHTML = `
@@ -111,9 +115,7 @@ function renderPlayerList(players, containerId = 'player-list') {
     const badge = player.isHuman ? '<span class="badge badge--human">あなた</span>' : '';
     const deadMark = player.isAlive ? '' : '<span class="badge badge--dead">死亡</span>';
 
-    const coRoleObj = player.coRole
-      ? Object.values(ROLES).find((r) => r.id === player.coRole)
-      : null;
+    const coRoleObj = player.coRole ? ROLE_BY_ID[player.coRole] : null;
     const coRoleBadge = coRoleObj
       ? `<span class="badge badge--co">${coRoleObj.icon} ${coRoleObj.name}</span>`
       : '';
