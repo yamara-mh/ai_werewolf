@@ -1,6 +1,125 @@
 // AI プレイヤーロジック
 // OpenAI API (または互換API) を使用してAIプレイヤーの発言・行動を生成します
 
+// --- 共通APIコール ---
+
+async function callAI(systemPrompt, userPrompt, apiKey, model) {
+  if (model.startsWith('gemini-')) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: `System:\n${systemPrompt}\n\nUser:\n${userPrompt}` }],
+            },
+          ],
+          generationConfig: { maxOutputTokens: 400, temperature: 0.8 },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`Gemini API Error ${res.status}: ${err.error?.message || res.statusText}`);
+    }
+
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('\n').trim() || '';
+  }
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: model || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 400,
+      temperature: 0.8,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`API Error ${res.status}: ${err.error?.message || res.statusText}`);
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content?.trim() || '';
+}
+
+// --- ロジックAI ---
+
+class LogicAI {
+  constructor(gameState) {
+    this.gameState = gameState;
+  }
+
+  async analyze() {
+    const gs = this.gameState;
+    const { aiApiKey, logicAiModel } = gs.settings;
+
+    if (!aiApiKey) return this._fallbackAnalysis();
+
+    const model = logicAiModel || 'gpt-4o-mini';
+    const systemPrompt = 'あなたは人狼ゲームを観察するロジックAIです。村人の視点でチャットを分析し、確定情報・役職予想・人狼ライン候補・推奨行動を簡潔に整理してください。日本語で出力してください。';
+    const userPrompt = this._buildAnalysisPrompt();
+
+    try {
+      return await callAI(systemPrompt, userPrompt, aiApiKey, model);
+    } catch (e) {
+      console.warn('ロジックAI分析エラー:', e);
+      return this._fallbackAnalysis();
+    }
+  }
+
+  _buildAnalysisPrompt() {
+    const gs = this.gameState;
+    const alivePlayers = gs.getAlivePlayers().map((p) => p.name).join('、');
+    const deadPlayers = gs.players
+      .filter((p) => !p.isAlive)
+      .map((p) => `${p.name}（${p.role?.name || '不明'}）`)
+      .join('、');
+
+    const recentPosts = gs.bbsLog
+      .filter((p) => p.type !== 'system')
+      .slice(-30)
+      .map((p) => {
+        const coLabel = p.coRole ? `[${ROLE_BY_ID?.[p.coRole]?.name || p.coRole}CO]` : '';
+        return `${p.playerName}${coLabel}: ${p.content}`;
+      })
+      .join('\n');
+
+    return `現在: ${gs.day}日目
+生存プレイヤー: ${alivePlayers}
+${deadPlayers ? `死亡・処刑: ${deadPlayers}` : ''}
+
+以下の形式で分析してください：
+【確定情報】役職COした人物・死亡者など
+【役職予想】各プレイヤーの役職予想と根拠
+【人狼ライン候補】人狼の可能性が高いプレイヤーと理由
+【推奨行動】村人陣営として取るべき行動
+
+チャットログ（最近の発言）:
+${recentPosts || '（発言なし）'}`;
+  }
+
+  _fallbackAnalysis() {
+    return '（APIキーが設定されていないため、分析できません）';
+  }
+}
+
+// --- AIプレイヤー ---
+
 class AIPlayer {
   constructor(gameState) {
     this.gameState = gameState;
@@ -19,7 +138,7 @@ class AIPlayer {
     }
 
     try {
-      const response = await this._callAPI(systemPrompt, userPrompt, aiApiKey, aiModel);
+      const response = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel);
       return response;
     } catch (e) {
       console.warn(`AI発言生成エラー (${aiPlayer.name}):`, e);
@@ -41,7 +160,7 @@ class AIPlayer {
     const userPrompt = this._buildVotePrompt(aiPlayer, alivePlayers);
 
     try {
-      const responseText = await this._callAPI(systemPrompt, userPrompt, aiApiKey, aiModel);
+      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel);
       const target = this._parseVoteTarget(responseText, alivePlayers);
       return target || this._fallbackVote(aiPlayer, alivePlayers);
     } catch (e) {
@@ -54,7 +173,6 @@ class AIPlayer {
   async decideNightAction(aiPlayer) {
     const gs = this.gameState;
     const { aiApiKey, aiModel } = gs.settings;
-    const humanPlayer = gs.getHumanPlayer();
 
     // 人狼は人間以外の村人を優先して狙う（またはAI村人）
     const alivePlayers = gs.getAlivePlayers().filter((p) => p.id !== aiPlayer.id);
@@ -68,7 +186,7 @@ class AIPlayer {
     const userPrompt = this._buildNightActionPrompt(aiPlayer, alivePlayers);
 
     try {
-      const responseText = await this._callAPI(systemPrompt, userPrompt, aiApiKey, aiModel);
+      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel);
       const target = this._parseVoteTarget(responseText, alivePlayers);
       return target || this._fallbackNightAction(aiPlayer, alivePlayers);
     } catch (e) {
@@ -90,16 +208,23 @@ class AIPlayer {
           .join('、')
       : '';
 
+    const roomLevel = gs.settings.roomLevel || 'intermediate';
+    const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
+
+    const logicAiSection = gs.logicAiOutput
+      ? `\nあなたの思考（ロジック分析）:\n${gs.logicAiOutput}`
+      : '';
+
     return `あなたは人狼ゲームのAIプレイヤーです。
 名前: ${aiPlayer.name}
 性格・スタイル: ${aiPlayer.personality}
 役職: ${role?.name || '不明'}（${role?.description || ''}）
 チーム: ${isWolf ? '人狼陣営' : '村人陣営'}
 ${isWolf && teammates ? `仲間の人狼: ${teammates}` : ''}
-
+${roomLevelPrompt}
 ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く（1〜3文）発言してください。
 役職は絶対に明かさないでください（占い師が公開する場合を除く）。
-ゲームを楽しく盛り上げるよう心がけてください。`;
+ゲームを楽しく盛り上げるよう心がけてください。${logicAiSection}`;
   }
 
   _buildSpeechPrompt(aiPlayer) {
@@ -146,73 +271,9 @@ ${recentPosts || '（発言なし）'}
 対象の名前を一人だけ答えてください。`;
   }
 
-  // --- APIコール ---
-
-  async _callAPI(systemPrompt, userPrompt, apiKey, model) {
-    const geminiModels = new Set(['gemini-2.5-flash', 'gemini-2.5-pro']);
-    if (geminiModels.has(model)) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: `System:\n${systemPrompt}\n\nUser:\n${userPrompt}` }],
-              },
-            ],
-            generationConfig: {
-              maxOutputTokens: 200,
-              temperature: 0.8,
-            },
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(`Gemini API Error ${res.status}: ${err.error?.message || res.statusText}`);
-      }
-
-      const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text).join('\n').trim();
-      return text || '';
-    }
-
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: model || 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 200,
-        temperature: 0.8,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(`API Error ${res.status}: ${err.error?.message || res.statusText}`);
-    }
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content?.trim() || '';
-  }
-
   // --- フォールバック（APIなし時） ---
 
   _fallbackSpeech(aiPlayer) {
-    const role = aiPlayer.role;
     const gs = this.gameState;
     const phase = gs.phase;
 

@@ -16,7 +16,11 @@ class GameState {
       optionalRoles: [ROLES.SEER.id, ROLES.MEDIUM.id, ROLES.HUNTER.id],
       aiApiKey: '',
       aiModel: 'gpt-4o-mini',
+      logicAiModel: 'gpt-4o-mini',
+      roomLevel: 'intermediate',
+      showLogicAi: true,
     };
+    this.logicAiOutput = '';
   }
 
   // ゲームの初期化

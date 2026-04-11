@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const rolePreviewEl = document.getElementById('role-preview');
   const apiKeyInput = document.getElementById('api-key');
   const toggleApiKey = document.getElementById('toggle-api-key');
+  const startBtn = document.querySelector('#setup-form [type="submit"]');
 
   // APIキーの表示/非表示切替
   if (toggleApiKey) {
@@ -41,14 +42,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // 開始ボタンの有効/無効制御
+  function updateStartButton() {
+    if (!startBtn) return;
+    const total = parseInt(playerCountSelect.value, 10);
+    const wolves = parseInt(werewolfCountSelect?.value || '2', 10);
+    if (wolves >= total / 2) {
+      startBtn.disabled = true;
+      startBtn.title = '人狼がプレイヤーの半数以上になっています';
+    } else {
+      startBtn.disabled = false;
+      startBtn.title = '';
+    }
+  }
+
   if (playerCountSelect) {
-    playerCountSelect.addEventListener('change', updateRolePreview);
+    playerCountSelect.addEventListener('change', () => {
+      updateRolePreview();
+      updateStartButton();
+    });
   }
   if (werewolfCountSelect) {
-    werewolfCountSelect.addEventListener('change', updateRolePreview);
+    werewolfCountSelect.addEventListener('change', () => {
+      updateRolePreview();
+      updateStartButton();
+    });
   }
   optionalRoleInputs.forEach((input) => input.addEventListener('change', updateRolePreview));
   updateRolePreview();
+  updateStartButton();
 
   // フォーム送信
   if (form) {
@@ -64,6 +86,9 @@ document.addEventListener('DOMContentLoaded', () => {
           .map((input) => input.value),
         aiApiKey: apiKeyInput ? apiKeyInput.value.trim() : '',
         aiModel: document.getElementById('ai-model')?.value || 'gpt-4o-mini',
+        logicAiModel: document.getElementById('logic-ai-model')?.value || 'gpt-4o-mini',
+        roomLevel: document.getElementById('room-level')?.value || 'intermediate',
+        showLogicAi: document.getElementById('show-logic-ai')?.checked ?? true,
       };
 
       // ゲーム状態を初期化して保存
