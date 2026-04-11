@@ -27,8 +27,8 @@ class BBS {
         </div>`;
     } else {
       const roleObj = post.coRole ? ROLE_BY_ID[post.coRole] : null;
-      const roleSuffix = roleObj ? ` ${roleObj.icon}` : '';
-      const nameDisplay = `${this._escape(post.playerName)}${roleSuffix}`;
+      const roleIcon = roleObj ? roleObj.icon : ROLES.VILLAGER.icon;
+      const nameDisplay = `${roleIcon} ${this._escape(post.playerName)}`;
       el.innerHTML = `
         <div class="bbs-post__row">
           <span class="bbs-post__name">${nameDisplay}</span>

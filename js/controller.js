@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const bbs = new BBS('bbs-container');
   const aiPlayer = new AIPlayer(gs);
+  const logicAi = new LogicAI(gs);
   const humanPlayer = gs.getHumanPlayer();
 
   // --- UI要素 ---
@@ -23,9 +24,45 @@ document.addEventListener('DOMContentLoaded', async () => {
   const chatForm = document.getElementById('chat-form');
   const chatInput = document.getElementById('chat-input');
   const coRoleSelect = document.getElementById('co-role-select');
+  const logicAiBtn = document.getElementById('logic-ai-btn');
+  const logicAiModal = document.getElementById('logic-ai-modal');
+  const logicAiContent = document.getElementById('logic-ai-content');
+  const logicAiClose = document.getElementById('logic-ai-close');
+
+  // ロジックAI 発動閾値管理
+  let lastLogicAiThreshold = 0;
 
   // 人間が昼フェーズで1回目の発言を済ませたかフラグ
   let dayFirstPosted = false;
+
+  // ロジックAIボタン表示制御
+  if (logicAiBtn) {
+    if (!gs.settings.showLogicAi) {
+      logicAiBtn.style.display = 'none';
+    }
+  }
+
+  // ロジックAIモーダル
+  if (logicAiBtn) {
+    logicAiBtn.addEventListener('click', () => {
+      if (logicAiContent) {
+        logicAiContent.textContent = gs.logicAiOutput || '（まだ分析が実行されていません）';
+      }
+      if (logicAiModal) logicAiModal.classList.remove('hidden');
+    });
+  }
+
+  if (logicAiClose) {
+    logicAiClose.addEventListener('click', () => {
+      if (logicAiModal) logicAiModal.classList.add('hidden');
+    });
+  }
+
+  if (logicAiModal) {
+    logicAiModal.addEventListener('click', (e) => {
+      if (e.target === logicAiModal) logicAiModal.classList.add('hidden');
+    });
+  }
 
   // --- 永続チャットフォームのイベント設定 ---
   if (chatForm) {
@@ -50,6 +87,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (chatInput) chatInput.value = '';
       renderPlayerList(gs.players);
       gs.save();
+
+      // ロジックAI発動チェック
+      await triggerLogicAiIfNeeded();
 
       // 昼フェーズで最初の発言なら次のフェーズ処理（AI後半→投票）を開始
       // その他のフェーズでは発言は掲示板に追加されるのみで進行には影響しない
@@ -98,9 +138,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     actionArea.innerHTML = '';
 
     switch (gs.phase) {
-      case GAME_PHASES.DAY:
-        showDaySkipButton();
-        break;
       case GAME_PHASES.VOTE:
         showVotePanel();
         break;
@@ -119,7 +156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (phaseLabel) phaseLabel.textContent = phaseText(gs.phase);
     if (dayLabel) dayLabel.textContent = gs.day > 0 ? `${gs.day}日目` : '';
     if (roleLabel && humanPlayer?.role) {
-      roleLabel.textContent = `あなたの役職: ${humanPlayer.role.icon} ${humanPlayer.role.name}`;
+      roleLabel.textContent = `${humanPlayer.role.icon} ${humanPlayer.role.name}`;
     }
   }
 
@@ -163,26 +200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await runAISpeeches(firstHalf);
 
-    // 人間の発言を促す（スキップボタンをアクションエリアに表示）
-    showDaySkipButton();
     gs.save();
-  }
-
-  // --- 昼フェーズ：スキップボタンを表示 ---
-  function showDaySkipButton() {
-    if (!actionArea) return;
-    actionArea.innerHTML = '';
-    const skipBtn = document.createElement('button');
-    skipBtn.className = 'btn btn--secondary';
-    skipBtn.textContent = '発言をスキップ';
-    skipBtn.id = 'skip-btn';
-    skipBtn.addEventListener('click', async () => {
-      if (dayFirstPosted) return;
-      dayFirstPosted = true;
-      actionArea.innerHTML = '';
-      await afterHumanSpeech();
-    });
-    actionArea.appendChild(skipBtn);
   }
 
   async function afterHumanSpeech() {
@@ -214,6 +232,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         coRole: player.coRole,
       });
       bbs.renderPost(post);
+      gs.save();
+
+      await triggerLogicAiIfNeeded();
+    }
+  }
+
+  // --- ロジックAI 発動チェック ---
+  async function triggerLogicAiIfNeeded() {
+    const totalChars = gs.bbsLog
+      .filter((p) => p.type !== 'system')
+      .reduce((sum, p) => sum + (p.content ? p.content.length : 0), 0);
+    const threshold = Math.floor(totalChars / 500);
+    if (threshold > lastLogicAiThreshold) {
+      lastLogicAiThreshold = threshold;
+      const analysis = await logicAi.analyze();
+      gs.logicAiOutput = analysis;
       gs.save();
     }
   }
@@ -274,17 +308,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         actionArea.appendChild(btn);
       });
-
-    // スキップボタン（棄権）
-    const skipBtn = document.createElement('button');
-    skipBtn.className = 'btn btn--secondary';
-    skipBtn.textContent = '棄権する';
-    skipBtn.addEventListener('click', async () => {
-      actionArea.innerHTML = '';
-      gs.save();
-      await runExecution();
-    });
-    actionArea.appendChild(skipBtn);
   }
 
   // --- 処刑フェーズ ---
