@@ -34,7 +34,7 @@ const ROLES = {
     name: '狂人',
     team: 'werewolf',
     description: '人狼の仲間です。役職は村人に見えますが、人狼チームの勝利を目指します。',
-    icon: '🃏',
+    icon: '🤪',
   },
   WEREWOLF: {
     id: 'werewolf',
@@ -66,9 +66,9 @@ const ROLES = {
   },
   WHITE_WOLF: {
     id: 'white_wolf',
-    name: '白狼',
+    name: '大狼',
     team: 'werewolf',
-    description: '人狼陣営。夜に村人を襲撃できます。',
+    description: '人狼陣営。夜に村人を襲撃できます。占いでは人間判定、霊媒では人狼判定される。',
     icon: '🐺',
   },
 };
@@ -114,6 +114,16 @@ const OPTIONAL_ROLE_ORDER = [
 
 function isWerewolfRole(role) {
   return role?.team === TEAMS.WEREWOLF;
+}
+
+// 占い師の判定上「人狼」と出るか（大狼は人間判定のため除外）
+function isSeerWerewolf(role) {
+  return role?.id === ROLES.WEREWOLF.id;
+}
+
+// 実際の人狼かどうか（狂人を除く）
+function isActualWolf(role) {
+  return role?.id === ROLES.WEREWOLF.id || role?.id === ROLES.WHITE_WOLF.id;
 }
 
 function buildRoleDeck(totalPlayers, werewolfCount, optionalRoleIds = []) {

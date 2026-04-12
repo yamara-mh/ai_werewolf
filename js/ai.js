@@ -200,10 +200,9 @@ class AIPlayer {
   _buildSystemPrompt(aiPlayer) {
     const gs = this.gameState;
     const role = aiPlayer.role;
-    const isWolf = role?.team === TEAMS.WEREWOLF;
-    const teammates = isWolf
+    const teammates = isActualWolf(role)
       ? gs.players
-          .filter((p) => p.role?.team === TEAMS.WEREWOLF && p.id !== aiPlayer.id)
+          .filter((p) => isActualWolf(p.role) && p.id !== aiPlayer.id)
           .map((p) => p.name)
           .join('、')
       : '';
@@ -219,15 +218,15 @@ class AIPlayer {
 名前: ${aiPlayer.name}
 性格・スタイル: ${aiPlayer.personality}
 役職: ${role?.name || '不明'}（${role?.description || ''}）
-チーム: ${isWolf ? '人狼陣営' : '村人陣営'}
-${isWolf && teammates ? `仲間の人狼: ${teammates}\n` : ''}${roomLevelPrompt ? `${roomLevelPrompt}\n` : ''}ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く（1〜3文）発言してください。
+チーム: ${isActualWolf(role) ? '人狼陣営' : '村人陣営'}
+${isActualWolf(role) && teammates ? `仲間の人狼: ${teammates}\n` : ''}${roomLevelPrompt ? `${roomLevelPrompt}\n` : ''}ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く（1〜3文）発言してください。
 役職は絶対に明かさないでください（占い師が公開する場合を除く）。
 ゲームを楽しく盛り上げるよう心がけてください。${logicAiSection}`;
   }
 
   _buildSpeechPrompt(aiPlayer) {
     const gs = this.gameState;
-    const recentPosts = gs.bbsLog.slice(-10).map(
+    const recentPosts = gs.bbsLog.slice(-30).map(
       (p) => `${p.playerName}: ${p.content}`
     ).join('\n');
 
@@ -242,7 +241,7 @@ ${recentPosts || '（まだ発言はありません）'}
 
   _buildVotePrompt(aiPlayer, candidates) {
     const gs = this.gameState;
-    const recentPosts = gs.bbsLog.slice(-15).map(
+    const recentPosts = gs.bbsLog.slice(-30).map(
       (p) => `${p.playerName}: ${p.content}`
     ).join('\n');
 
