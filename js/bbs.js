@@ -220,19 +220,21 @@ function renderPlayerList(players, options = {}) {
     el.className = `player-card ${player.isAlive ? '' : 'player-card--dead'} ${activePlayerId === player.id ? 'player-card--active' : ''} ${voteTargetId === player.id ? 'player-card--vote-target' : ''}`;
     el.dataset.playerId = player.id;
 
-    const badge = player.isHuman ? '<span class="badge badge--human">あなた</span>' : '';
+    const humanClass = player.isHuman ? 'player-card--human' : '';
     const deadMark = player.isAlive ? '' : '<span class="badge badge--dead">死亡</span>';
     const coRoleObj = player.coRole ? ROLE_BY_ID[player.coRole] : null;
     const rolePrefix = coRoleObj ? `${coRoleObj.icon} ` : '';
     const portraitSrc = `personality/portrait/${escapeHtml(player.name)}.png`;
     const allyNameClass = italicPlayerIds.has(player.id) ? 'ally-name' : '';
 
+    if (humanClass) el.classList.add(humanClass);
+
     el.innerHTML = `
       <span class="player-card__name ${allyNameClass}">
         <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
         ${rolePrefix}${escapeHtml(player.name)}
       </span>
-      ${badge}${deadMark}`;
+      ${deadMark}`;
     if (typeof onPlayerClick === 'function') {
       el.addEventListener('click', () => onPlayerClick(player));
     }
