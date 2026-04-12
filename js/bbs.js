@@ -12,6 +12,9 @@ class BBS {
     this.playerFilterId = null;
     this.isBookmarkFilterEnabled = false;
     this.bookmarkedPostIds = new Set();
+    this.bookmarkFilterScrollTop = null;
+    this.knownAllyIds = new Set();
+    this.canViewWhisper = false;
   }
 
   // 投稿を一件レンダリング
@@ -33,14 +36,16 @@ class BBS {
       const roleIcon = roleObj ? roleObj.icon : ROLES.VILLAGER.icon;
       const nameDisplay = `${roleIcon} ${this._escape(post.playerName)}`;
       const portraitSrc = `personality/portrait/${this._escape(post.playerName)}.png`;
+      const allyNameClass = this.knownAllyIds.has(post.playerId) ? 'ally-name' : '';
+      const whisperPrefix = post.type === 'whisper' ? '<span class="bbs-post__whisper-prefix">🤫密談</span> ' : '';
       el.innerHTML = `
         <div class="bbs-post__row">
           <label class="bbs-post__bookmark">
             <input type="checkbox" class="bbs-post__bookmark-checkbox" />
           </label>
           <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--post" alt="" />
-          <span class="bbs-post__name">${nameDisplay}</span>
-          <span class="bbs-post__body">${this._escape(post.content)}</span>
+          <span class="bbs-post__name ${allyNameClass}">${nameDisplay}</span>
+          <span class="bbs-post__body">${whisperPrefix}${this._escape(post.content)}</span>
         </div>`;
     }
 
@@ -77,8 +82,19 @@ class BBS {
   }
 
   toggleBookmarkFilter() {
+    if (!this.container) return false;
+    if (!this.isBookmarkFilterEnabled) {
+      this.bookmarkFilterScrollTop = this.container.scrollTop;
+    }
     this.isBookmarkFilterEnabled = !this.isBookmarkFilterEnabled;
     this.applyFilters();
+    if (!this.isBookmarkFilterEnabled && this.bookmarkFilterScrollTop !== null) {
+      const restoreTop = this.bookmarkFilterScrollTop;
+      requestAnimationFrame(() => {
+        this.container.scrollTop = Math.max(0, restoreTop);
+      });
+      this.bookmarkFilterScrollTop = null;
+    }
     return this.isBookmarkFilterEnabled;
   }
 
@@ -145,11 +161,18 @@ class BBS {
   _bindBookmarkCheckbox(postElement, post) {
     if (post.type === 'system') return;
     const checkbox = postElement.querySelector('.bbs-post__bookmark-checkbox');
+    const row = postElement.querySelector('.bbs-post__row');
     if (!checkbox) return;
+    const updateRowState = () => {
+      if (!row) return;
+      row.classList.toggle('bbs-post__row--bookmarked', checkbox.checked);
+    };
     checkbox.checked = this.bookmarkedPostIds.has(post.id);
+    updateRowState();
     checkbox.addEventListener('change', () => {
       if (checkbox.checked) this.bookmarkedPostIds.add(post.id);
       else this.bookmarkedPostIds.delete(post.id);
+      updateRowState();
       if (this.isBookmarkFilterEnabled) this.applyFilters();
     });
   }
@@ -166,7 +189,15 @@ class BBS {
     if (this.isBookmarkFilterEnabled) {
       visible = visible && postType !== 'system' && this.bookmarkedPostIds.has(postId);
     }
+    if (postType === 'whisper' && !this.canViewWhisper) {
+      visible = false;
+    }
     postElement.style.display = visible ? '' : 'none';
+  }
+
+  setKnownAllies({ allyIds = [], canViewWhisper = false } = {}) {
+    this.knownAllyIds = new Set(allyIds);
+    this.canViewWhisper = !!canViewWhisper;
   }
 }
 
@@ -177,6 +208,7 @@ function renderPlayerList(players, options = {}) {
     onPlayerClick = null,
     activePlayerId = null,
     voteTargetId = null,
+    italicPlayerIds = new Set(),
   } = options;
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -193,9 +225,10 @@ function renderPlayerList(players, options = {}) {
     const coRoleObj = player.coRole ? ROLE_BY_ID[player.coRole] : null;
     const rolePrefix = coRoleObj ? `${coRoleObj.icon} ` : '';
     const portraitSrc = `personality/portrait/${escapeHtml(player.name)}.png`;
+    const allyNameClass = italicPlayerIds.has(player.id) ? 'ally-name' : '';
 
     el.innerHTML = `
-      <span class="player-card__name">
+      <span class="player-card__name ${allyNameClass}">
         <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
         ${rolePrefix}${escapeHtml(player.name)}
       </span>
