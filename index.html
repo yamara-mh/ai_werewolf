@@ -8,14 +8,8 @@
 </head>
 <body>
 
-  <header class="site-header">
-    <span class="site-header__title">🐺 AI人狼</span>
-    <span class="site-header__sub">AIと遊ぶ電子掲示板人狼ゲーム</span>
-  </header>
-
   <main class="lobby">
     <h1 class="lobby__title">AI 人狼</h1>
-    <p class="lobby__subtitle">電子掲示板で繰り広げられる推理と欺きのゲーム</p>
 
     <button id="resume-btn" class="btn btn--secondary" style="display:none; width:100%; margin-bottom:16px;">
       ▶ 途中のゲームを再開する
@@ -39,7 +33,7 @@
         </div>
 
         <div class="form-group">
-          <label for="player-count">プレイヤー人数（AIを含む）</label>
+          <label for="player-count">参加人数</label>
           <select id="player-count" class="form-control">
             <option value="8">8人</option>
             <option value="9" selected>9人</option>
@@ -53,7 +47,7 @@
         </div>
 
         <div class="form-group">
-          <label for="werewolf-count">人狼の人数</label>
+          <label for="werewolf-count">人狼</label>
           <select id="werewolf-count" class="form-control">
             <option value="1">1人</option>
             <option value="2" selected>2人</option>
@@ -63,7 +57,7 @@
         </div>
 
         <div class="form-group">
-          <label>追加役職（人数が足りない場合は自動で除外）</label>
+          <label>追加役職</label>
           <div class="role-options">
             <label class="role-option"><input type="checkbox" name="optional-role" value="seer" checked /> 🔮 占い師</label>
             <label class="role-option"><input type="checkbox" name="optional-role" value="medium" checked /> 🪬 霊媒師</label>
@@ -83,10 +77,10 @@
       </div>
 
       <div class="card">
-        <h2 class="card__title">🤖 AI設定（オプション）</h2>
+        <h2 class="card__title">🤖 AI設定</h2>
         <p class="text-muted mt-1">
-          OpenAI / Gemini のAPI Keyを設定すると、AIが本格的な発言・推理を行います。<br>
-          設定しない場合はサンプル発言でゲームを進行できます。
+          Gemini / OpenAI のAPI Keyを設定すると、AIが本格的な発言・推理を行います。<br>
+          設定しない場合はサンプル発言でゲームを進行します。
         </p>
 
         <div class="form-group mt-2">
@@ -106,44 +100,37 @@
         <div class="form-group">
           <label for="ai-model">会話AIモデル</label>
           <select id="ai-model" class="form-control">
-            <option value="gpt-4o-mini">gpt-4o-mini（高速・低コスト）</option>
-            <option value="gpt-4o">gpt-4o（高品質）</option>
-            <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-            <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-            <option value="gemini-3.0-flash" selected>gemini-3.0-flash</option>
-            <option value="gemini-3.0-pro">gemini-3.0-pro</option>
+            <option value="gemini-3-flash" selected>gemini-3-flash</option>
+            <option value="gemini-3.1-pro">gemini-3.0-pro</option>
+            <option value="gpt-5">gpt-5</option>
+            <option value="gpt-5-thinking">gpt-5-thinking</option>
+            <option value="gpt-5.3">gpt-5.3</option>
+            <option value="gpt-5.4">gpt-5.4</option>
+            <option value="gpt-5.4-pro">gpt-5.4-pro</option>
           </select>
         </div>
 
         <div class="form-group">
           <label for="logic-ai-model">ロジックAIモデル</label>
           <select id="logic-ai-model" class="form-control">
-            <option value="gpt-4o-mini">gpt-4o-mini（高速・低コスト）</option>
-            <option value="gpt-4o">gpt-4o（高品質）</option>
-            <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-            <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-            <option value="gemini-3.0-flash" selected>gemini-3.0-flash</option>
-            <option value="gemini-3.0-pro">gemini-3.0-pro</option>
+            <option value="gemini-3-flash" selected>gemini-3-flash</option>
+            <option value="gemini-3.1-pro">gemini-3.0-pro</option>
+            <option value="gpt-5">gpt-5</option>
+            <option value="gpt-5-thinking">gpt-5-thinking</option>
+            <option value="gpt-5.3">gpt-5.3</option>
+            <option value="gpt-5.4">gpt-5.4</option>
+            <option value="gpt-5.4-pro">gpt-5.4-pro</option>
           </select>
         </div>
 
         <div class="form-group">
           <label for="room-level">部屋のレベル</label>
           <select id="room-level" class="form-control">
-            <option value="tutorial">チュートリアル（用語やセオリーの解説を交えた議論）</option>
+            <option value="tutorial" selected>チュートリアル（用語やセオリーの解説を交えた議論）</option>
             <option value="beginner">初級者</option>
-            <option value="intermediate" selected>中級者</option>
+            <option value="intermediate">中級者</option>
             <option value="advanced">上級者</option>
           </select>
-        </div>
-
-        <div class="form-group">
-          <label class="role-option">
-            <input type="checkbox" id="show-logic-ai" checked />
-            🤖 ゲーム中にロジックAIの分析内容を表示する
-          </label>
         </div>
       </div>
 
@@ -156,50 +143,44 @@
       <div class="rules-grid">
         <div class="role-card role-card--village">
           <div class="role-card__name">👤 村人</div>
-          <div class="role-card__desc">特殊能力なし。議論と投票で人狼を追放せよ。</div>
+          <div class="role-card__desc">村人陣営。人狼を全員排除したら勝利</div>
         </div>
         <div class="role-card role-card--village">
           <div class="role-card__name">🔮 占い師</div>
-          <div class="role-card__desc">毎夜、一人の役職を占える。</div>
+          <div class="role-card__desc">村人陣営。毎夜1人を占い人狼か判定できる</div>
         </div>
         <div class="role-card role-card--village">
           <div class="role-card__name">🪬 霊媒師</div>
-          <div class="role-card__desc">処刑者の役職が判明する。</div>
+          <div class="role-card__desc">村人陣営。会議前に昨日の処刑者が人狼か知れる</div>
         </div>
         <div class="role-card role-card--village">
           <div class="role-card__name">🛡️ 騎士</div>
-          <div class="role-card__desc">毎夜、一人を人狼から守る。</div>
+          <div class="role-card__desc">村人陣営。毎夜自分以外の1人を護衛し、襲撃から守れる</div>
         </div>
         <div class="role-card role-card--werewolf">
           <div class="role-card__name">🃏 狂人</div>
-          <div class="role-card__desc">人狼の仲間。村人に見える。</div>
+          <div class="role-card__desc">人狼陣営。村人だが、勝利条件は人狼と同じ</div>
         </div>
         <div class="role-card role-card--werewolf">
           <div class="role-card__name">🐺 人狼</div>
-          <div class="role-card__desc">毎夜、村人を一人襲撃する。</div>
+          <div class="role-card__desc">人狼陣営。毎夜1人を襲撃し、村人と同数になったら勝利</div>
         </div>
         <div class="role-card role-card--village">
           <div class="role-card__name">🤝 共有者</div>
-          <div class="role-card__desc">村人陣営。議論で連携する役職。</div>
+          <div class="role-card__desc">村人陣営。もう一人の共有者を把握できる</div>
         </div>
         <div class="role-card role-card--village">
           <div class="role-card__name">🐈 猫又</div>
-          <div class="role-card__desc">村人陣営の特殊役職。</div>
+          <div class="role-card__desc">村人陣営。吊られたら村人を、襲撃されたら人狼を無作為に一人道連れにする</div>
         </div>
         <div class="role-card role-card--village">
           <div class="role-card__name">🦊 妖狐</div>
-          <div class="role-card__desc">村人陣営として扱われる特殊役職。</div>
+          <div class="role-card__desc">第三陣営。ゲーム終了時に生存していると単独勝利になる。占われると死亡する</div>
         </div>
         <div class="role-card role-card--werewolf">
-          <div class="role-card__name">🐺 白狼</div>
-          <div class="role-card__desc">人狼陣営の特殊役職。</div>
+          <div class="role-card__name">🐺 大狼</div>
+          <div class="role-card__desc">人狼陣営。占いでは人間判定、霊媒では人狼判定される</div>
         </div>
-      </div>
-
-      <div class="mt-2 text-muted">
-        <strong>勝利条件</strong><br>
-        村人陣営：人狼を全員追放する。<br>
-        人狼陣営：生存者に占める人狼の数が村人以上になる。
       </div>
     </div>
   </main>
