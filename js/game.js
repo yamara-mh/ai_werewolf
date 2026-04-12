@@ -114,6 +114,7 @@ class GameState {
 
   // フェーズ遷移
   nextPhase() {
+    const prevPhase = this.phase;
     switch (this.phase) {
       case GAME_PHASES.SETUP:
         this.phase = GAME_PHASES.MORNING;
@@ -142,8 +143,16 @@ class GameState {
       default:
         break;
     }
-    this.votes = {};
-    this.nightActions = {};
+    if (this.phase === GAME_PHASES.VOTE && prevPhase !== GAME_PHASES.VOTE) {
+      this.votes = {};
+    }
+    if (this.phase === GAME_PHASES.NIGHT && prevPhase !== GAME_PHASES.NIGHT) {
+      this.nightActions = {};
+    }
+    if (this.phase === GAME_PHASES.MORNING) {
+      this.nightActions = {};
+      this.votes = {};
+    }
     return this.phase;
   }
 
@@ -158,7 +167,7 @@ class GameState {
     Object.values(this.votes).forEach((targetId) => {
       counts[targetId] = (counts[targetId] || 0) + 1;
     });
-    if (Object.keys(counts).length === 0) return null;
+    if (Object.keys(counts).length === 0) return { executed: null, counts: {} };
     const maxVotes = Math.max(...Object.values(counts));
     const candidates = Object.keys(counts).filter((id) => counts[id] === maxVotes);
     // 同票の場合はランダム
@@ -192,8 +201,13 @@ class GameState {
       .filter(Boolean);
 
     if (attackTargets.length > 0) {
-      // 最多得票の対象を攻撃
-      const targetId = attackTargets[0];
+      const attackCounts = {};
+      attackTargets.forEach((targetId) => {
+        attackCounts[targetId] = (attackCounts[targetId] || 0) + 1;
+      });
+      const maxAttack = Math.max(...Object.values(attackCounts));
+      const candidates = Object.keys(attackCounts).filter((id) => attackCounts[id] === maxAttack);
+      const targetId = candidates[Math.floor(Math.random() * candidates.length)];
       const target = this.players.find((p) => p.id === targetId);
       if (target) {
         if (targetId === guardedId) {

@@ -21,16 +21,13 @@
       <div id="bbs-container"></div>
     </div>
 
-    <!-- アクションエリア（投票・夜行動など） -->
-    <div id="action-area" class="action-area"></div>
-
     <!-- 常時表示チャット入力エリア -->
     <div class="chat-bar">
       <form id="chat-form" class="chat-form">
         <div class="chat-form__top">
           <span id="role-label" class="chat-role-label"></span>
           <select id="co-role-select" class="form-control co-role-select">
-            <option value="">役職CO: なし</option>
+            <option value="">CO</option>
             <option value="villager">👤 村人</option>
             <option value="seer">🔮 占い師</option>
             <option value="medium">🪬 霊媒師</option>
@@ -47,7 +44,8 @@
           <span id="chat-top-actions"></span>
         </div>
         <div class="chat-form__bottom">
-          <textarea id="chat-input" class="chat-input" placeholder="発言を入力してください..." rows="2" maxlength="300"></textarea>
+          <button type="button" id="whisper-toggle-btn" class="btn btn--secondary" style="display:none;">密談</button>
+          <textarea id="chat-input" class="chat-input" placeholder="発言を入力してください...（Ctrl + Enterで投稿）" rows="2" maxlength="300"></textarea>
           <button type="submit" id="chat-submit" class="btn btn--primary">発言</button>
         </div>
       </form>

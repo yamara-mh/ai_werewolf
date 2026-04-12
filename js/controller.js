@@ -17,12 +17,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const phaseLabel = document.getElementById('phase-label');
   const dayLabel = document.getElementById('day-label');
   const roleLabel = document.getElementById('role-label');
-  const actionArea = document.getElementById('action-area');
   const endModal = document.getElementById('end-modal');
   const endMessage = document.getElementById('end-message');
   const restartBtn = document.getElementById('restart-btn');
   const chatForm = document.getElementById('chat-form');
   const chatInput = document.getElementById('chat-input');
+  const whisperToggleBtn = document.getElementById('whisper-toggle-btn');
   const coRoleSelect = document.getElementById('co-role-select');
   const logicAiBtn = document.getElementById('logic-ai-btn');
   const bookmarkFilterBtn = document.getElementById('bookmark-filter-btn');
@@ -45,11 +45,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   let dayFirstPosted = false;
   let activePlayerFilterId = null;
   let selectedVoteTargetId = null;
+  let whisperModeEnabled = false;
 
   const roleById = Object.values(ROLES).reduce((map, role) => {
     map[role.id] = role;
     return map;
   }, {});
+  const knownAllyIds = new Set();
 
   // ロジックAIボタン表示制御
   if (logicAiBtn) {
@@ -116,11 +118,58 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   setupCoRoleSelect();
 
+  function isHumanActualWolf() {
+    return isActualWolf(humanPlayer?.role);
+  }
+
+  function computeKnownAllyIds() {
+    knownAllyIds.clear();
+    if (humanPlayer?.role?.id === ROLES.SHARED.id) {
+      gs.players
+        .filter((p) => p.id !== humanPlayer.id && p.role?.id === ROLES.SHARED.id)
+        .forEach((p) => knownAllyIds.add(p.id));
+      return;
+    }
+    if (isHumanActualWolf()) {
+      gs.players
+        .filter((p) => p.id !== humanPlayer.id && isActualWolf(p.role))
+        .forEach((p) => knownAllyIds.add(p.id));
+    }
+  }
+
+  function updateBbsViewerContext() {
+    bbs.setKnownAllies({
+      allyIds: Array.from(knownAllyIds),
+      canViewWhisper: isHumanActualWolf(),
+    });
+  }
+
+  function updateWhisperButton() {
+    if (!whisperToggleBtn) return;
+    const visible = isHumanActualWolf() && humanPlayer.isAlive && gs.phase !== GAME_PHASES.END;
+    whisperToggleBtn.style.display = visible ? '' : 'none';
+    if (!visible) whisperModeEnabled = false;
+    whisperToggleBtn.classList.toggle('btn--whisper-active', whisperModeEnabled);
+    whisperToggleBtn.textContent = whisperModeEnabled ? '密談中' : '密談';
+  }
+
+  computeKnownAllyIds();
+  updateBbsViewerContext();
+  updateWhisperButton();
+
   if (bookmarkFilterBtn) {
     bookmarkFilterBtn.addEventListener('click', () => {
       const enabled = bbs.toggleBookmarkFilter();
       bookmarkFilterBtn.classList.toggle('btn--bookmark-active', enabled);
       updateBbsContainerStyle();
+    });
+  }
+
+  if (whisperToggleBtn) {
+    whisperToggleBtn.addEventListener('click', () => {
+      if (!isHumanActualWolf()) return;
+      whisperModeEnabled = !whisperModeEnabled;
+      updateWhisperButton();
     });
   }
 
@@ -163,6 +212,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         playerName: humanPlayer.name,
         playerId: humanPlayer.id,
         content: text,
+        type: whisperModeEnabled ? 'whisper' : 'speech',
         coRole: humanPlayer.coRole,
       });
       bbs.renderPost(post);
@@ -177,8 +227,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       // その他のフェーズでは発言は掲示板に追加されるのみで進行には影響しない
       if (gs.phase === GAME_PHASES.DAY && !dayFirstPosted) {
         dayFirstPosted = true;
-        if (actionArea) actionArea.innerHTML = '';
         await afterHumanSpeech();
+      }
+    });
+  }
+
+  if (chatInput && chatForm) {
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault();
+        chatForm.requestSubmit();
       }
     });
   }
@@ -207,9 +265,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     bbs.renderPhaseHeader(gs.day, gs.phase);
     gs.addSystemPost(`ゲームが始まりました！${gs.players.length}人のプレイヤーが村に集まっています。`);
     bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
+    runStartSecretAnnouncements();
     updateHeader();
     gs.save();
     await runMorning();
+  }
+
+  function runStartSecretAnnouncements() {
+    if (!humanPlayer?.isAlive) return;
+    if (humanPlayer.role?.id === ROLES.SHARED.id) {
+      const partner = gs.players.find((p) => p.id !== humanPlayer.id && p.role?.id === ROLES.SHARED.id);
+      if (partner) {
+        gs.addSystemPost(`【GM秘密通達】あなたは共有者です。相方は ${partner.name} です。`);
+        bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
+      }
+      return;
+    }
+    if (isHumanActualWolf()) {
+      const allies = gs.players
+        .filter((p) => p.id !== humanPlayer.id && isActualWolf(p.role))
+        .map((p) => p.name);
+      if (allies.length > 0) {
+        gs.addSystemPost(`【GM秘密通達】あなたの人狼仲間は ${allies.join('、')} です。`);
+        bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
+      }
+    }
   }
 
   // --- 0日目: 初日占い結果通達 ---
@@ -233,11 +313,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- フェーズUI切替 ---
   function renderPhaseUI() {
     updateHeader();
+    updateWhisperButton();
     renderPlayers();
     renderChatTopActions();
-
-    if (!actionArea) return;
-    actionArea.innerHTML = '';
 
     switch (gs.phase) {
       case GAME_PHASES.VOTE:
@@ -260,6 +338,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (roleLabel && humanPlayer?.role) {
       roleLabel.textContent = `${humanPlayer.role.icon} ${humanPlayer.role.name}`;
     }
+    updateWhisperButton();
   }
 
   function phaseText(phase) {
@@ -385,8 +464,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function showVotePanel() {
-    if (!actionArea) return;
-    actionArea.innerHTML = '<p class="action-label">🗳️ 「投票先を選ぶ」ボタンから投票してください。</p>';
     renderPlayers();
     renderChatTopActions();
   }
@@ -398,7 +475,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateHeader();
 
     await sleep(600);
-    const { executed, counts } = gs.tallyVotes();
+    const tallyResult = gs.tallyVotes();
+    const executed = tallyResult?.executed || null;
+    const counts = tallyResult?.counts || {};
 
     if (executed) {
       const voteText = Object.entries(counts)
@@ -516,24 +595,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 夜アクションパネルをPromiseで返す（モーダル経由）
   function showNightPanelAsync() {
     return new Promise((resolve) => {
-      if (!actionArea) { resolve(); return; }
-      const humanRole = humanPlayer.role;
-      let label = '';
-      if (isWerewolfRole(humanRole)) label = '🐺 今夜、誰を襲撃しますか？';
-      else if (humanRole?.id === ROLES.SEER.id) label = '🔮 今夜、誰を占いますか？';
-      else if (humanRole?.id === ROLES.HUNTER.id) label = '🛡️ 今夜、誰を護衛しますか？';
-
-      actionArea.innerHTML = `<p class="action-label">${label}</p><p class="action-label">上のボタンから行動先を選んでください。</p>`;
-
       nightActionResolve = resolve;
       renderChatTopActions();
     });
   }
 
   function showNightPanel() {
-    // game.html の renderPhaseUI から直接呼ばれる場合（ページリロード後など）
-    if (!actionArea) return;
-    actionArea.innerHTML = '<p class="action-label">夜フェーズが進行中です…</p>';
     renderChatTopActions();
   }
 
@@ -556,13 +623,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         <p>${personalResult}</p>
         <div class="player-roles">
           ${gs.players.map((p) =>
-            `<div class="${p.isHuman ? 'font-bold' : ''}">${p.name}：${p.role?.icon} ${p.role?.name}</div>`
+            `<div class="${p.isHuman ? 'font-bold' : ''} ${knownAllyIds.has(p.id) ? 'ally-name' : ''}">${p.name}：${p.role?.icon} ${p.role?.name}</div>`
           ).join('')}
         </div>`;
     }
 
     endModal.classList.remove('hidden');
-    if (actionArea) actionArea.innerHTML = '';
     selectedVoteTargetId = null;
     if (chatTopActions) chatTopActions.innerHTML = '';
   }
@@ -595,6 +661,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       onPlayerClick: handlePlayerCardClick,
       activePlayerId: activePlayerFilterId,
       voteTargetId: selectedVoteTargetId,
+      italicPlayerIds: knownAllyIds,
     });
   }
 
@@ -637,6 +704,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function buildModalPlayerButtonContent(player) {
+    const coRoleObj = player.coRole ? roleById[player.coRole] : null;
+    const rolePrefix = coRoleObj ? `${coRoleObj.icon} ` : '';
+    const allyClass = knownAllyIds.has(player.id) ? 'ally-name' : '';
+    const portraitSrc = `personality/portrait/${escapeHtml(player.name)}.png`;
+    return `
+      <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--post" alt="" />
+      <span class="modal-player-btn__name ${allyClass}">${rolePrefix}${escapeHtml(player.name)}</span>`;
+  }
+
   // --- 投票モーダル表示 ---
   function showVoteModal() {
     if (!voteModal || !voteModalPlayerList) return;
@@ -648,7 +725,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn btn--vote modal-player-btn';
-      btn.textContent = player.name;
+      btn.innerHTML = buildModalPlayerButtonContent(player);
       btn.addEventListener('click', async () => {
         const ok = window.confirm(`${player.name} に投票しますか？`);
         if (!ok) return;
@@ -670,11 +747,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn btn--night modal-player-btn';
-      btn.textContent = player.name;
+      btn.innerHTML = buildModalPlayerButtonContent(player);
       btn.addEventListener('click', () => {
         nightModal.classList.add('hidden');
         gs.setNightAction(humanPlayer.id, player.id);
-        if (actionArea) actionArea.innerHTML = '<p class="action-label">行動を登録しました。AIの行動を待っています…</p>';
         renderChatTopActions();
         if (nightActionResolve) {
           nightActionResolve();
@@ -697,7 +773,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       coRole: humanPlayer.coRole,
     });
     bbs.renderPost(post);
-    if (actionArea) actionArea.innerHTML = '';
     selectedVoteTargetId = null;
     renderChatTopActions();
     gs.save();
