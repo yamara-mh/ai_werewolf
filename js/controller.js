@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     whisperToggleBtn.style.display = visible ? '' : 'none';
     if (!visible) whisperModeEnabled = false;
     whisperToggleBtn.classList.toggle('btn--whisper-active', whisperModeEnabled);
-    whisperToggleBtn.textContent = whisperModeEnabled ? '密談中' : '密談';
+    whisperToggleBtn.textContent = whisperModeEnabled ? '...' : '🤫';
   }
 
   computeKnownAllyIds();
