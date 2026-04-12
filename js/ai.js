@@ -200,10 +200,9 @@ class AIPlayer {
   _buildSystemPrompt(aiPlayer) {
     const gs = this.gameState;
     const role = aiPlayer.role;
-    const isActualWolf = role?.id === ROLES.WEREWOLF.id || role?.id === ROLES.WHITE_WOLF.id;
-    const teammates = isActualWolf
+    const teammates = isActualWolf(role)
       ? gs.players
-          .filter((p) => isWerewolfRole(p.role) && p.role?.id !== ROLES.MADMAN.id && p.id !== aiPlayer.id)
+          .filter((p) => isActualWolf(p.role) && p.id !== aiPlayer.id)
           .map((p) => p.name)
           .join('、')
       : '';
@@ -219,8 +218,8 @@ class AIPlayer {
 名前: ${aiPlayer.name}
 性格・スタイル: ${aiPlayer.personality}
 役職: ${role?.name || '不明'}（${role?.description || ''}）
-チーム: ${isActualWolf ? '人狼陣営' : '村人陣営'}
-${isActualWolf && teammates ? `仲間の人狼: ${teammates}\n` : ''}${roomLevelPrompt ? `${roomLevelPrompt}\n` : ''}ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く（1〜3文）発言してください。
+チーム: ${isActualWolf(role) ? '人狼陣営' : '村人陣営'}
+${isActualWolf(role) && teammates ? `仲間の人狼: ${teammates}\n` : ''}${roomLevelPrompt ? `${roomLevelPrompt}\n` : ''}ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く（1〜3文）発言してください。
 役職は絶対に明かさないでください（占い師が公開する場合を除く）。
 ゲームを楽しく盛り上げるよう心がけてください。${logicAiSection}`;
   }

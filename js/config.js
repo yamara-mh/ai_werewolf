@@ -121,6 +121,11 @@ function isSeerWerewolf(role) {
   return role?.id === ROLES.WEREWOLF.id;
 }
 
+// 実際の人狼かどうか（狂人を除く）
+function isActualWolf(role) {
+  return role?.id === ROLES.WEREWOLF.id || role?.id === ROLES.WHITE_WOLF.id;
+}
+
 function buildRoleDeck(totalPlayers, werewolfCount, optionalRoleIds = []) {
   const total = Number(totalPlayers) || 8;
   const requestedWolves = Number(werewolfCount) || 1;

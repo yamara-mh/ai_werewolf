@@ -582,9 +582,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updateBbsContainerStyle() {
     if (!bbsContainer) return;
     if (activePlayerFilterId) {
-      bbsContainer.style.backgroundColor = '#2a2800';
+      bbsContainer.style.backgroundColor = 'var(--filter-player-bg)';
     } else if (bbs.isBookmarkFilterEnabled) {
-      bbsContainer.style.backgroundColor = '#2a1800';
+      bbsContainer.style.backgroundColor = 'var(--filter-bookmark-bg)';
     } else {
       bbsContainer.style.backgroundColor = '';
     }
@@ -684,11 +684,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       nightModalPlayerList.appendChild(btn);
     });
     nightModal.classList.remove('hidden');
-  }
-
-  // --- 投票確定 ---
-  function renderVoteSubmitButton() {
-    renderChatTopActions();
   }
 
   async function submitVote(target) {
