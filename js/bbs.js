@@ -10,8 +10,8 @@ const ROLE_BY_ID = Object.values(ROLES).reduce((map, role) => {
 function buildPlayerNameHtml(name, { coRole = null, isAlly = false } = {}) {
   const roleObj = coRole ? ROLE_BY_ID[coRole] : null;
   const rolePrefix = roleObj ? `${roleObj.icon} ` : '';
-  const allyClass = isAlly ? ' ally-name' : '';
-  return `${rolePrefix}<span class="player-name-text${allyClass}">${escapeHtml(name)}</span>`;
+  const allyAttr = isAlly ? ' class="ally-name"' : '';
+  return `${rolePrefix}<span${allyAttr}>${escapeHtml(name)}</span>`;
 }
 
 class BBS {
