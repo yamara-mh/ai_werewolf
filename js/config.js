@@ -8,13 +8,6 @@ const ROLES = {
     description: '特殊能力はありません。昼の議論と投票で人狼を追放してください。',
     icon: '👤',
   },
-  WEREWOLF: {
-    id: 'werewolf',
-    name: '人狼',
-    team: 'werewolf',
-    description: '毎晩、村人を一人襲撃できます。昼間は村人のふりをしてください。',
-    icon: '🐺',
-  },
   SEER: {
     id: 'seer',
     name: '占い師',
@@ -36,19 +29,19 @@ const ROLES = {
     description: '毎晩、一人のプレイヤーを人狼の襲撃から守れます。',
     icon: '🛡️',
   },
-  BAKER: {
-    id: 'baker',
-    name: 'パン屋',
-    team: 'village',
-    description: '村人陣営。特別な夜行動はありません。',
-    icon: '🥖',
+  MADMAN: {
+    id: 'madman',
+    name: '狂人',
+    team: 'werewolf',
+    description: '人狼の仲間です。役職は村人に見えますが、人狼チームの勝利を目指します。',
+    icon: '🃏',
   },
-  FOX: {
-    id: 'fox',
-    name: '妖狐',
-    team: 'village',
-    description: '村人陣営として扱われます。特別な夜行動はありません。',
-    icon: '🦊',
+  WEREWOLF: {
+    id: 'werewolf',
+    name: '人狼',
+    team: 'werewolf',
+    description: '毎晩、村人を一人襲撃できます。昼間は村人のふりをしてください。',
+    icon: '🐺',
   },
   SHARED: {
     id: 'shared',
@@ -64,19 +57,19 @@ const ROLES = {
     description: '村人陣営。特別な夜行動はありません。',
     icon: '🐈',
   },
+  FOX: {
+    id: 'fox',
+    name: '妖狐',
+    team: 'village',
+    description: '村人陣営として扱われます。特別な夜行動はありません。',
+    icon: '🦊',
+  },
   WHITE_WOLF: {
     id: 'white_wolf',
     name: '白狼',
     team: 'werewolf',
     description: '人狼陣営。夜に村人を襲撃できます。',
     icon: '🐺',
-  },
-  MADMAN: {
-    id: 'madman',
-    name: '狂人',
-    team: 'werewolf',
-    description: '人狼の仲間です。役職は村人に見えますが、人狼チームの勝利を目指します。',
-    icon: '🃏',
   },
 };
 
@@ -95,14 +88,27 @@ const TEAMS = {
   WEREWOLF: 'werewolf',
 };
 
+const ROLE_DISPLAY_ORDER = [
+  ROLES.VILLAGER.id,
+  ROLES.SEER.id,
+  ROLES.MEDIUM.id,
+  ROLES.HUNTER.id,
+  ROLES.MADMAN.id,
+  ROLES.WEREWOLF.id,
+  ROLES.SHARED.id,
+  ROLES.CAT.id,
+  ROLES.FOX.id,
+  ROLES.WHITE_WOLF.id,
+];
+
 const OPTIONAL_ROLE_ORDER = [
   ROLES.SEER.id,
   ROLES.MEDIUM.id,
   ROLES.HUNTER.id,
-  ROLES.BAKER.id,
-  ROLES.FOX.id,
+  ROLES.MADMAN.id,
   ROLES.SHARED.id,
   ROLES.CAT.id,
+  ROLES.FOX.id,
   ROLES.WHITE_WOLF.id,
 ];
 

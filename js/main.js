@@ -1,6 +1,7 @@
 // ロビー（index.html）エントリーポイント
 
 document.addEventListener('DOMContentLoaded', () => {
+  const LOBBY_STORAGE_KEY = 'ai_werewolf_lobby_settings';
   const form = document.getElementById('setup-form');
   const playerCountSelect = document.getElementById('player-count');
   const werewolfCountSelect = document.getElementById('werewolf-count');
@@ -9,6 +10,63 @@ document.addEventListener('DOMContentLoaded', () => {
   const apiKeyInput = document.getElementById('api-key');
   const toggleApiKey = document.getElementById('toggle-api-key');
   const startBtn = document.querySelector('#setup-form [type="submit"]');
+
+  function saveLobbySettings() {
+    if (!form) return;
+    const controls = Array.from(form.elements || []);
+    const data = {};
+    controls.forEach((el) => {
+      if (!el.name && !el.id) return;
+      const key = el.name || el.id;
+      if (el.type === 'checkbox') {
+        if (el.name === 'optional-role') {
+          if (!data.optionalRoles) data.optionalRoles = [];
+          if (el.checked) data.optionalRoles.push(el.value);
+        } else {
+          data[key] = el.checked;
+        }
+        return;
+      }
+      if (el.type === 'submit' || el.tagName === 'BUTTON') return;
+      data[key] = el.value;
+    });
+    try {
+      localStorage.setItem(LOBBY_STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('ロビー設定の保存に失敗しました', e);
+    }
+  }
+
+  function loadLobbySettings() {
+    try {
+      const raw = localStorage.getItem(LOBBY_STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return;
+
+      const controls = Array.from(form?.elements || []);
+      controls.forEach((el) => {
+        if (!el.name && !el.id) return;
+        const key = el.name || el.id;
+        if (el.type === 'checkbox') {
+          if (el.name === 'optional-role') {
+            if (Array.isArray(data.optionalRoles)) {
+              el.checked = data.optionalRoles.includes(el.value);
+            }
+          } else if (typeof data[key] === 'boolean') {
+            el.checked = data[key];
+          }
+          return;
+        }
+        if (el.type === 'submit' || el.tagName === 'BUTTON') return;
+        if (typeof data[key] === 'string') {
+          el.value = data[key];
+        }
+      });
+    } catch (e) {
+      console.warn('ロビー設定の読み込みに失敗しました', e);
+    }
+  }
 
   // APIキーの表示/非表示切替
   if (toggleApiKey) {
@@ -29,14 +87,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const preset = buildRoleDeck(count, werewolfCount, optionalRoleIds);
     const roleCounts = {};
     preset.forEach((role) => {
-      roleCounts[role.name] = (roleCounts[role.name] || 0) + 1;
+      roleCounts[role.id] = (roleCounts[role.id] || 0) + 1;
     });
 
     if (rolePreviewEl) {
-      rolePreviewEl.innerHTML = Object.entries(roleCounts)
-        .map(([name, count]) => {
-          const role = Object.values(ROLES).find((r) => r.name === name);
-          return `<span class="role-badge">${role?.icon || ''} ${name} ×${count}</span>`;
+      rolePreviewEl.innerHTML = ROLE_DISPLAY_ORDER
+        .filter((roleId) => roleCounts[roleId] > 0)
+        .map((roleId) => {
+          const role = Object.values(ROLES).find((r) => r.id === roleId);
+          const countByRole = roleCounts[roleId];
+          return `<span class="role-badge">${role?.icon || ''} ${role?.name || ''} ×${countByRole}</span>`;
         })
         .join('');
     }
@@ -60,15 +120,32 @@ document.addEventListener('DOMContentLoaded', () => {
     playerCountSelect.addEventListener('change', () => {
       updateRolePreview();
       updateStartButton();
+      saveLobbySettings();
     });
   }
   if (werewolfCountSelect) {
     werewolfCountSelect.addEventListener('change', () => {
       updateRolePreview();
       updateStartButton();
+      saveLobbySettings();
     });
   }
-  optionalRoleInputs.forEach((input) => input.addEventListener('change', updateRolePreview));
+  optionalRoleInputs.forEach((input) => input.addEventListener('change', () => {
+    updateRolePreview();
+    saveLobbySettings();
+  }));
+  if (form) {
+    Array.from(form.elements || []).forEach((el) => {
+      if (!(el instanceof HTMLElement)) return;
+      if (el.name === 'optional-role' || el.id === 'player-count' || el.id === 'werewolf-count') return;
+      if (el.type === 'submit' || el.tagName === 'BUTTON') return;
+      const eventName = el.type === 'checkbox' ? 'change' : 'input';
+      el.addEventListener(eventName, saveLobbySettings);
+      if (eventName !== 'change') el.addEventListener('change', saveLobbySettings);
+    });
+  }
+
+  loadLobbySettings();
   updateRolePreview();
   updateStartButton();
 
@@ -85,11 +162,12 @@ document.addEventListener('DOMContentLoaded', () => {
           .filter((input) => input.checked)
           .map((input) => input.value),
         aiApiKey: apiKeyInput ? apiKeyInput.value.trim() : '',
-        aiModel: document.getElementById('ai-model')?.value || 'gpt-4o-mini',
-        logicAiModel: document.getElementById('logic-ai-model')?.value || 'gpt-4o-mini',
+        aiModel: document.getElementById('ai-model')?.value || 'gemini-3.0-flash',
+        logicAiModel: document.getElementById('logic-ai-model')?.value || 'gemini-3.0-flash',
         roomLevel: document.getElementById('room-level')?.value || 'intermediate',
         showLogicAi: document.getElementById('show-logic-ai')?.checked ?? true,
       };
+      saveLobbySettings();
 
       // ゲーム状態を初期化して保存
       const gs = new GameState();

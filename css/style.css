@@ -315,6 +315,15 @@ h1, h2, h3 { line-height: 1.3; }
   border-radius: var(--radius);
 }
 
+.bbs-post__bookmark {
+  display: inline-flex;
+  align-items: center;
+}
+
+.bbs-post__bookmark-checkbox {
+  cursor: pointer;
+}
+
 .bbs-post__name {
   color: #ffcc66;
   font-weight: bold;
@@ -410,6 +419,11 @@ h1, h2, h3 { line-height: 1.3; }
   align-items: center;
 }
 
+#chat-top-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
 .chat-form__bottom {
   display: flex;
   gap: 8px;
@@ -448,6 +462,10 @@ h1, h2, h3 { line-height: 1.3; }
   font-family: var(--font-main);
   font-size: 0.9rem;
   resize: none;
+}
+
+#chat-submit {
+  align-self: stretch;
 }
 
 .chat-input:focus {
@@ -491,11 +509,29 @@ h1, h2, h3 { line-height: 1.3; }
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  appearance: none;
 }
 
 .player-card--dead {
   opacity: 0.4;
   text-decoration: line-through;
+}
+
+.player-card--active {
+  border-color: var(--accent2);
+}
+
+.player-card--vote-target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.player-card:focus-visible {
+  outline: 2px solid var(--accent2);
+  outline-offset: 1px;
 }
 
 .player-card__name {
@@ -519,10 +555,8 @@ h1, h2, h3 { line-height: 1.3; }
   color: #ffaaaa;
 }
 
-.badge--co {
-  background: #1a3a5a;
-  color: #88ccff;
-  border: 1px solid #2a5a8a;
+.btn--active {
+  border: 1px solid var(--accent2);
 }
 
 /* ===== 終了モーダル ===== */
