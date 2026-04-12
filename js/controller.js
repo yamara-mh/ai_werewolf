@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const restartBtn = document.getElementById('restart-btn');
   const chatForm = document.getElementById('chat-form');
   const chatInput = document.getElementById('chat-input');
-  const whisperToggleBtn = document.getElementById('whisper-toggle-btn');
+  const whisperToggleBtn = document.getElementById('whisper-mode-btn');
   const coRoleSelect = document.getElementById('co-role-select');
   const logicAiBtn = document.getElementById('logic-ai-btn');
   const bookmarkFilterBtn = document.getElementById('bookmark-filter-btn');
@@ -622,9 +622,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         <p class="end-result">${winLabel}</p>
         <p>${personalResult}</p>
         <div class="player-roles">
-          ${gs.players.map((p) =>
-            `<div class="${p.isHuman ? 'font-bold' : ''} ${knownAllyIds.has(p.id) ? 'ally-name' : ''}">${p.name}：${p.role?.icon} ${p.role?.name}</div>`
-          ).join('')}
+          ${gs.players.map((p) => {
+            const isAlly = knownAllyIds.has(p.id);
+            const nameHtml = buildPlayerNameHtml(p.name, { coRole: p.coRole, isAlly });
+            return `<div class="${p.isHuman ? 'font-bold' : ''}">${nameHtml}：${p.role?.icon} ${p.role?.name}</div>`;
+          }).join('')}
         </div>`;
     }
 
@@ -705,13 +707,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function buildModalPlayerButtonContent(player) {
-    const coRoleObj = player.coRole ? roleById[player.coRole] : null;
-    const rolePrefix = coRoleObj ? `${coRoleObj.icon} ` : '';
-    const allyClass = knownAllyIds.has(player.id) ? 'ally-name' : '';
+    const isAlly = knownAllyIds.has(player.id);
+    const nameHtml = buildPlayerNameHtml(player.name, { coRole: player.coRole, isAlly });
     const portraitSrc = `personality/portrait/${escapeHtml(player.name)}.png`;
     return `
       <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--post" alt="" />
-      <span class="modal-player-btn__name ${allyClass}">${rolePrefix}${escapeHtml(player.name)}</span>`;
+      <span class="modal-player-btn__name">${nameHtml}</span>`;
   }
 
   // --- 投票モーダル表示 ---

@@ -331,6 +331,11 @@ h1, h2, h3 { line-height: 1.3; }
   background: #23324b;
 }
 
+.bbs-post__row--whisper {
+  background: #2a1010;
+  border-color: #7a2020;
+}
+
 .bbs-post__name {
   color: #ffcc66;
   font-weight: bold;
@@ -468,7 +473,7 @@ h1, h2, h3 { line-height: 1.3; }
 }
 
 #chat-submit,
-#whisper-toggle-btn {
+#whisper-mode-btn {
   align-self: stretch;
 }
 
@@ -542,7 +547,7 @@ h1, h2, h3 { line-height: 1.3; }
 }
 
 .player-card--human {
-  border-width: 2px;
+  border-width: 3px;
 }
 
 .player-card:focus-visible {
@@ -559,11 +564,6 @@ h1, h2, h3 { line-height: 1.3; }
   padding: 2px 6px;
   border-radius: 3px;
   white-space: nowrap;
-}
-
-.badge--human {
-  background: var(--accent2);
-  color: #fff;
 }
 
 .badge--dead {
