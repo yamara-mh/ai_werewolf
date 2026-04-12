@@ -6,6 +6,14 @@ const ROLE_BY_ID = Object.values(ROLES).reduce((map, role) => {
   return map;
 }, {});
 
+// プレイヤー名の表示HTML（役職COアイコン・仲間アンダーライン）を一元生成
+function buildPlayerNameHtml(name, { coRole = null, isAlly = false } = {}) {
+  const roleObj = coRole ? ROLE_BY_ID[coRole] : null;
+  const rolePrefix = roleObj ? `${roleObj.icon} ` : '';
+  const allyAttr = isAlly ? ' class="ally-name"' : '';
+  return `${rolePrefix}<span${allyAttr}>${escapeHtml(name)}</span>`;
+}
+
 class BBS {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
@@ -32,19 +40,18 @@ class BBS {
           <span class="bbs-post__content">${this._escape(post.content)}</span>
         </div>`;
     } else {
-      const roleObj = post.coRole ? ROLE_BY_ID[post.coRole] : null;
-      const roleIcon = roleObj ? roleObj.icon : ROLES.VILLAGER.icon;
-      const nameDisplay = `${roleIcon} ${this._escape(post.playerName)}`;
+      const isAlly = this.knownAllyIds.has(post.playerId);
+      const nameHtml = buildPlayerNameHtml(post.playerName, { coRole: post.coRole, isAlly });
       const portraitSrc = `personality/portrait/${this._escape(post.playerName)}.png`;
-      const allyNameClass = this.knownAllyIds.has(post.playerId) ? 'ally-name' : '';
+      const whisperClass = post.type === 'whisper' ? ' bbs-post__row--whisper' : '';
       const whisperPrefix = post.type === 'whisper' ? '<span class="bbs-post__whisper-prefix">🤫密談</span> ' : '';
       el.innerHTML = `
-        <div class="bbs-post__row">
+        <div class="bbs-post__row${whisperClass}">
           <label class="bbs-post__bookmark">
             <input type="checkbox" class="bbs-post__bookmark-checkbox" />
           </label>
           <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--post" alt="" />
-          <span class="bbs-post__name ${allyNameClass}">${nameDisplay}</span>
+          <span class="bbs-post__name">${nameHtml}</span>
           <span class="bbs-post__body">${whisperPrefix}${this._escape(post.content)}</span>
         </div>`;
     }
@@ -222,17 +229,16 @@ function renderPlayerList(players, options = {}) {
 
     const humanClass = player.isHuman ? 'player-card--human' : '';
     const deadMark = player.isAlive ? '' : '<span class="badge badge--dead">死亡</span>';
-    const coRoleObj = player.coRole ? ROLE_BY_ID[player.coRole] : null;
-    const rolePrefix = coRoleObj ? `${coRoleObj.icon} ` : '';
     const portraitSrc = `personality/portrait/${escapeHtml(player.name)}.png`;
-    const allyNameClass = italicPlayerIds.has(player.id) ? 'ally-name' : '';
+    const isAlly = italicPlayerIds.has(player.id);
+    const nameHtml = buildPlayerNameHtml(player.name, { coRole: player.coRole, isAlly });
 
     if (humanClass) el.classList.add(humanClass);
 
     el.innerHTML = `
-      <span class="player-card__name ${allyNameClass}">
+      <span class="player-card__name">
         <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
-        ${rolePrefix}${escapeHtml(player.name)}
+        ${nameHtml}
       </span>
       ${deadMark}`;
     if (typeof onPlayerClick === 'function') {
