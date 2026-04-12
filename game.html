@@ -32,21 +32,23 @@
           <select id="co-role-select" class="form-control co-role-select">
             <option value="">役職CO: なし</option>
             <option value="villager">👤 村人</option>
-            <option value="werewolf">🐺 人狼</option>
             <option value="seer">🔮 占い師</option>
             <option value="medium">🪬 霊媒師</option>
             <option value="hunter">🛡️ 騎士</option>
-            <option value="baker">🥖 パン屋</option>
-            <option value="fox">🦊 妖狐</option>
+            <option value="madman">🃏 狂人</option>
+            <option value="werewolf">🐺 人狼</option>
             <option value="shared">🤝 共有者</option>
             <option value="cat">🐈 猫又</option>
-            <option value="madman">🃏 狂人</option>
+            <option value="fox">🦊 妖狐</option>
+            <option value="white_wolf">🐺 白狼</option>
           </select>
           <button type="button" id="logic-ai-btn" class="btn btn--secondary btn--sm">🤖 AI</button>
-          <button type="submit" id="chat-submit" class="btn btn--primary">発言</button>
+          <button type="button" id="bookmark-filter-btn" class="btn btn--secondary btn--sm">🔖</button>
+          <span id="chat-top-actions"></span>
         </div>
         <div class="chat-form__bottom">
           <textarea id="chat-input" class="chat-input" placeholder="発言を入力してください..." rows="2" maxlength="300"></textarea>
+          <button type="submit" id="chat-submit" class="btn btn--primary">発言</button>
         </div>
       </form>
     </div>

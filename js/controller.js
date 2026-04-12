@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const chatInput = document.getElementById('chat-input');
   const coRoleSelect = document.getElementById('co-role-select');
   const logicAiBtn = document.getElementById('logic-ai-btn');
+  const bookmarkFilterBtn = document.getElementById('bookmark-filter-btn');
+  const chatTopActions = document.getElementById('chat-top-actions');
   const logicAiModal = document.getElementById('logic-ai-modal');
   const logicAiContent = document.getElementById('logic-ai-content');
   const logicAiClose = document.getElementById('logic-ai-close');
@@ -34,6 +36,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 人間が昼フェーズで1回目の発言を済ませたかフラグ
   let dayFirstPosted = false;
+  let activePlayerFilterId = null;
+  let selectedVoteTargetId = null;
+
+  const roleById = Object.values(ROLES).reduce((map, role) => {
+    map[role.id] = role;
+    return map;
+  }, {});
 
   // ロジックAIボタン表示制御
   if (logicAiBtn) {
@@ -64,18 +73,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  if (bookmarkFilterBtn) {
+    bookmarkFilterBtn.addEventListener('click', () => {
+      const enabled = bbs.toggleBookmarkFilter();
+      bookmarkFilterBtn.classList.toggle('btn--active', enabled);
+    });
+  }
+
+  if (coRoleSelect) {
+    coRoleSelect.addEventListener('change', async () => {
+      const coRoleId = coRoleSelect.value;
+      if (!coRoleId) return;
+      const roleObj = roleById[coRoleId];
+      const roleName = roleObj?.name || '不明な役職';
+      const ok = window.confirm(`${roleName}でCOしますか？`);
+      if (!ok) {
+        coRoleSelect.value = '';
+        return;
+      }
+      if (humanPlayer) {
+        humanPlayer.coRole = coRoleId;
+      }
+      const post = gs.addPost({
+        playerName: humanPlayer.name,
+        playerId: humanPlayer.id,
+        content: `${roleName}CO`,
+        coRole: humanPlayer.coRole,
+      });
+      bbs.renderPost(post);
+      renderPlayers();
+      gs.save();
+      coRoleSelect.value = '';
+      await triggerLogicAiIfNeeded();
+    });
+  }
+
   // --- 永続チャットフォームのイベント設定 ---
   if (chatForm) {
     chatForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const text = chatInput ? chatInput.value.trim() : '';
       if (!text) return;
-
-      // CO役職の更新
-      const coRoleId = coRoleSelect ? coRoleSelect.value : '';
-      if (humanPlayer) {
-        humanPlayer.coRole = coRoleId || null;
-      }
 
       const post = gs.addPost({
         playerName: humanPlayer.name,
@@ -85,7 +123,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       bbs.renderPost(post);
       if (chatInput) chatInput.value = '';
-      renderPlayerList(gs.players);
+      renderPlayers();
       gs.save();
 
       // ロジックAI発動チェック
@@ -102,14 +140,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // --- 初期描画 ---
-  renderPlayerList(gs.players);
+  renderPlayers();
   bbs.renderAll(gs.bbsLog);
   updateHeader();
 
-  // CO セレクトを humanPlayer の現在の coRole に合わせる
-  if (coRoleSelect && humanPlayer?.coRole) {
-    coRoleSelect.value = humanPlayer.coRole;
-  }
+  // CO セレクトは常に初期状態（なし）で表示
+  if (coRoleSelect) coRoleSelect.value = '';
 
   // ゲームが初めて始まる場合（朝フェーズへ）
   if (gs.phase === GAME_PHASES.SETUP) {
@@ -132,7 +168,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- フェーズUI切替 ---
   function renderPhaseUI() {
     updateHeader();
-    renderPlayerList(gs.players);
+    renderPlayers();
+    if (gs.phase !== GAME_PHASES.VOTE) {
+      selectedVoteTargetId = null;
+      renderVoteSubmitButton();
+    }
 
     if (!actionArea) return;
     actionArea.innerHTML = '';
@@ -256,6 +296,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function runVote() {
     bbs.renderPhaseHeader(gs.day, gs.phase);
     updateHeader();
+    selectedVoteTargetId = null;
+    renderVoteSubmitButton();
 
     // AIが投票
     const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
@@ -282,32 +324,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function showVotePanel() {
     if (!actionArea) return;
-    const alivePlayers = gs.getAlivePlayers();
-    actionArea.innerHTML = '<p class="action-label">🗳️ 処刑する人を選んでください：</p>';
-
-    alivePlayers
-      .filter((p) => p.id !== humanPlayer.id)
-      .forEach((player) => {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn--vote';
-        btn.dataset.targetId = player.id;
-        btn.textContent = player.name;
-        btn.addEventListener('click', async () => {
-          gs.castVote(humanPlayer.id, player.id);
-          const post = gs.addPost({
-            playerName: humanPlayer.name,
-            playerId: humanPlayer.id,
-            content: `${player.name} に投票します。`,
-            type: 'vote',
-            coRole: humanPlayer.coRole,
-          });
-          bbs.renderPost(post);
-          actionArea.innerHTML = '';
-          gs.save();
-          await runExecution();
-        });
-        actionArea.appendChild(btn);
-      });
+    actionArea.innerHTML = '<p class="action-label">🗳️ プレイヤー一覧から投票先を選んでください。</p>';
+    renderPlayers();
   }
 
   // --- 処刑フェーズ ---
@@ -332,7 +350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await sleep(800);
       gs.addSystemPost(`${executed.name} が処刑されました。役職は「${executed.role?.name}」でした。`);
       bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
-      renderPlayerList(gs.players);
+      renderPlayers();
     } else {
       gs.addSystemPost('投票が成立しませんでした。本日の処刑は見送られます。');
       bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
@@ -412,7 +430,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       );
     }
 
-    renderPlayerList(gs.players);
+    renderPlayers();
     bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
     gs.save();
 
@@ -493,6 +511,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     endModal.classList.remove('hidden');
     if (actionArea) actionArea.innerHTML = '';
+    selectedVoteTargetId = null;
+    renderVoteSubmitButton();
   }
 
   if (restartBtn) {
@@ -505,5 +525,58 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- ユーティリティ ---
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function renderPlayers() {
+    renderPlayerList(gs.players, {
+      onPlayerClick: handlePlayerCardClick,
+      activePlayerId: activePlayerFilterId,
+      voteTargetId: selectedVoteTargetId,
+    });
+  }
+
+  function handlePlayerCardClick(player) {
+    activePlayerFilterId = bbs.togglePlayerFilter(player.id);
+    renderPlayers();
+
+    if (gs.phase !== GAME_PHASES.VOTE) return;
+    if (!player.isAlive || player.id === humanPlayer.id) return;
+    selectedVoteTargetId = selectedVoteTargetId === player.id ? null : player.id;
+    renderPlayers();
+    renderVoteSubmitButton();
+  }
+
+  function renderVoteSubmitButton() {
+    if (!chatTopActions) return;
+    chatTopActions.innerHTML = '';
+    if (gs.phase !== GAME_PHASES.VOTE || !selectedVoteTargetId) return;
+    const target = gs.getPlayer(selectedVoteTargetId);
+    if (!target || !target.isAlive || target.id === humanPlayer.id) return;
+    const voteBtn = document.createElement('button');
+    voteBtn.type = 'button';
+    voteBtn.className = 'btn btn--vote btn--sm';
+    voteBtn.textContent = `投票: ${target.name}`;
+    voteBtn.addEventListener('click', async () => {
+      await submitVote(target);
+    });
+    chatTopActions.appendChild(voteBtn);
+  }
+
+  async function submitVote(target) {
+    if (gs.phase !== GAME_PHASES.VOTE) return;
+    gs.castVote(humanPlayer.id, target.id);
+    const post = gs.addPost({
+      playerName: humanPlayer.name,
+      playerId: humanPlayer.id,
+      content: `${target.name} に投票します。`,
+      type: 'vote',
+      coRole: humanPlayer.coRole,
+    });
+    bbs.renderPost(post);
+    if (actionArea) actionArea.innerHTML = '';
+    selectedVoteTargetId = null;
+    renderVoteSubmitButton();
+    gs.save();
+    await runExecution();
   }
 });

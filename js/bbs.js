@@ -9,6 +9,9 @@ const ROLE_BY_ID = Object.values(ROLES).reduce((map, role) => {
 class BBS {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
+    this.playerFilterId = null;
+    this.isBookmarkFilterEnabled = false;
+    this.bookmarkedPostIds = new Set();
   }
 
   // 投稿を一件レンダリング
@@ -31,11 +34,19 @@ class BBS {
       const nameDisplay = `${roleIcon} ${this._escape(post.playerName)}`;
       el.innerHTML = `
         <div class="bbs-post__row">
+          <label class="bbs-post__bookmark">
+            <input type="checkbox" class="bbs-post__bookmark-checkbox" />
+          </label>
           <span class="bbs-post__name">${nameDisplay}</span>
           <span class="bbs-post__body">${this._escape(post.content)}</span>
         </div>`;
     }
 
+    el.dataset.postId = String(post.id);
+    el.dataset.postType = post.type;
+    el.dataset.playerId = post.playerId || '';
+    this._bindBookmarkCheckbox(el, post);
+    this._applyFilterToPostElement(el);
     this.container.appendChild(el);
     this._scrollToBottom();
   }
@@ -45,6 +56,26 @@ class BBS {
     if (!this.container) return;
     this.container.innerHTML = '';
     posts.forEach((post) => this.renderPost(post));
+    this.applyFilters();
+  }
+
+  togglePlayerFilter(playerId) {
+    this.playerFilterId = this.playerFilterId === playerId ? null : playerId;
+    this.applyFilters();
+    return this.playerFilterId;
+  }
+
+  toggleBookmarkFilter() {
+    this.isBookmarkFilterEnabled = !this.isBookmarkFilterEnabled;
+    this.applyFilters();
+    return this.isBookmarkFilterEnabled;
+  }
+
+  applyFilters() {
+    if (!this.container) return;
+    this.container.querySelectorAll('.bbs-post').forEach((postEl) => {
+      this._applyFilterToPostElement(postEl);
+    });
   }
 
   // フェーズヘッダーを挿入
@@ -99,30 +130,64 @@ class BBS {
       this.container.scrollTop = this.container.scrollHeight;
     }
   }
+
+  _bindBookmarkCheckbox(postElement, post) {
+    if (post.type === 'system') return;
+    const checkbox = postElement.querySelector('.bbs-post__bookmark-checkbox');
+    if (!checkbox) return;
+    checkbox.checked = this.bookmarkedPostIds.has(post.id);
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) this.bookmarkedPostIds.add(post.id);
+      else this.bookmarkedPostIds.delete(post.id);
+      if (this.isBookmarkFilterEnabled) this.applyFilters();
+    });
+  }
+
+  _applyFilterToPostElement(postElement) {
+    const postType = postElement.dataset.postType || 'speech';
+    const postPlayerId = postElement.dataset.playerId || '';
+    const postId = Number(postElement.dataset.postId || '0');
+
+    let visible = true;
+    if (this.playerFilterId) {
+      visible = visible && postType !== 'system' && postPlayerId === this.playerFilterId;
+    }
+    if (this.isBookmarkFilterEnabled) {
+      visible = visible && postType !== 'system' && this.bookmarkedPostIds.has(postId);
+    }
+    postElement.style.display = visible ? '' : 'none';
+  }
 }
 
 // プレイヤーリストのレンダリング
-function renderPlayerList(players, containerId = 'player-list') {
+function renderPlayerList(players, options = {}) {
+  const {
+    containerId = 'player-list',
+    onPlayerClick = null,
+    activePlayerId = null,
+    voteTargetId = null,
+  } = options;
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '';
 
   players.forEach((player) => {
-    const el = document.createElement('div');
-    el.className = `player-card ${player.isAlive ? '' : 'player-card--dead'}`;
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = `player-card ${player.isAlive ? '' : 'player-card--dead'} ${activePlayerId === player.id ? 'player-card--active' : ''} ${voteTargetId === player.id ? 'player-card--vote-target' : ''}`;
     el.dataset.playerId = player.id;
 
     const badge = player.isHuman ? '<span class="badge badge--human">あなた</span>' : '';
     const deadMark = player.isAlive ? '' : '<span class="badge badge--dead">死亡</span>';
-
     const coRoleObj = player.coRole ? ROLE_BY_ID[player.coRole] : null;
-    const coRoleBadge = coRoleObj
-      ? `<span class="badge badge--co">${coRoleObj.icon} ${coRoleObj.name}</span>`
-      : '';
+    const rolePrefix = coRoleObj ? `${coRoleObj.icon} ` : '';
 
     el.innerHTML = `
-      <span class="player-card__name">${escapeHtml(player.name)}</span>
-      ${coRoleBadge}${badge}${deadMark}`;
+      <span class="player-card__name">${rolePrefix}${escapeHtml(player.name)}</span>
+      ${badge}${deadMark}`;
+    if (typeof onPlayerClick === 'function') {
+      el.addEventListener('click', () => onPlayerClick(player));
+    }
     container.appendChild(el);
   });
 }

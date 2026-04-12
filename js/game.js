@@ -11,12 +11,12 @@ class GameState {
     this.winner = null;
     this.settings = {
       playerName: 'あなた',
-      totalPlayers: 8,
+      totalPlayers: 9,
       werewolfCount: 2,
-      optionalRoles: [ROLES.SEER.id, ROLES.MEDIUM.id, ROLES.HUNTER.id],
+      optionalRoles: [ROLES.SEER.id, ROLES.MEDIUM.id, ROLES.HUNTER.id, ROLES.MADMAN.id],
       aiApiKey: '',
-      aiModel: 'gpt-4o-mini',
-      logicAiModel: 'gpt-4o-mini',
+      aiModel: 'gemini-3.0-flash',
+      logicAiModel: 'gemini-3.0-flash',
       roomLevel: 'intermediate',
       showLogicAi: true,
     };
