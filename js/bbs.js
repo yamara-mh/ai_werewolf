@@ -32,11 +32,13 @@ class BBS {
       const roleObj = post.coRole ? ROLE_BY_ID[post.coRole] : null;
       const roleIcon = roleObj ? roleObj.icon : ROLES.VILLAGER.icon;
       const nameDisplay = `${roleIcon} ${this._escape(post.playerName)}`;
+      const portraitSrc = `personality/portrait/${this._escape(post.playerName)}.png`;
       el.innerHTML = `
         <div class="bbs-post__row">
           <label class="bbs-post__bookmark">
             <input type="checkbox" class="bbs-post__bookmark-checkbox" />
           </label>
+          <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--post" alt="" />
           <span class="bbs-post__name">${nameDisplay}</span>
           <span class="bbs-post__body">${this._escape(post.content)}</span>
         </div>`;
@@ -51,11 +53,20 @@ class BBS {
     this._scrollToBottom();
   }
 
-  // 全投稿を再レンダリング
+  // 全投稿を再レンダリング（フェーズヘッダーも自動挿入）
   renderAll(posts) {
     if (!this.container) return;
     this.container.innerHTML = '';
-    posts.forEach((post) => this.renderPost(post));
+    let lastDay = null;
+    let lastPhase = null;
+    posts.forEach((post) => {
+      if (post.day !== lastDay || post.phase !== lastPhase) {
+        this.renderPhaseHeader(post.day, post.phase);
+        lastDay = post.day;
+        lastPhase = post.phase;
+      }
+      this.renderPost(post);
+    });
     this.applyFilters();
   }
 
@@ -181,9 +192,13 @@ function renderPlayerList(players, options = {}) {
     const deadMark = player.isAlive ? '' : '<span class="badge badge--dead">死亡</span>';
     const coRoleObj = player.coRole ? ROLE_BY_ID[player.coRole] : null;
     const rolePrefix = coRoleObj ? `${coRoleObj.icon} ` : '';
+    const portraitSrc = `personality/portrait/${escapeHtml(player.name)}.png`;
 
     el.innerHTML = `
-      <span class="player-card__name">${rolePrefix}${escapeHtml(player.name)}</span>
+      <span class="player-card__name">
+        <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
+        ${rolePrefix}${escapeHtml(player.name)}
+      </span>
       ${badge}${deadMark}`;
     if (typeof onPlayerClick === 'function') {
       el.addEventListener('click', () => onPlayerClick(player));

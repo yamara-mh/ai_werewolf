@@ -33,6 +33,23 @@
         </div>
 
         <div class="form-group">
+          <label for="preferred-role">希望役職</label>
+          <select id="preferred-role" class="form-control">
+            <option value="">指定なし（ランダム）</option>
+            <option value="villager">👤 村人</option>
+            <option value="seer">🔮 占い師</option>
+            <option value="medium">🪬 霊媒師</option>
+            <option value="hunter">🛡️ 騎士</option>
+            <option value="madman">🤪 狂人</option>
+            <option value="werewolf">🐺 人狼</option>
+            <option value="shared">🤝 共有者</option>
+            <option value="cat">🐈 猫又</option>
+            <option value="fox">🦊 妖狐</option>
+            <option value="white_wolf">🐺 大狼</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label for="player-count">参加人数</label>
           <select id="player-count" class="form-control">
             <option value="8">8人</option>
@@ -62,11 +79,11 @@
             <label class="role-option"><input type="checkbox" name="optional-role" value="seer" checked /> 🔮 占い師</label>
             <label class="role-option"><input type="checkbox" name="optional-role" value="medium" checked /> 🪬 霊媒師</label>
             <label class="role-option"><input type="checkbox" name="optional-role" value="hunter" checked /> 🛡️ 騎士</label>
-            <label class="role-option"><input type="checkbox" name="optional-role" value="madman" checked /> 🃏 狂人</label>
+            <label class="role-option"><input type="checkbox" name="optional-role" value="madman" checked /> 🤪 狂人</label>
             <label class="role-option"><input type="checkbox" name="optional-role" value="shared" /> 🤝 共有者</label>
             <label class="role-option"><input type="checkbox" name="optional-role" value="cat" /> 🐈 猫又</label>
             <label class="role-option"><input type="checkbox" name="optional-role" value="fox" /> 🦊 妖狐</label>
-            <label class="role-option"><input type="checkbox" name="optional-role" value="white_wolf" /> 🐺 白狼</label>
+            <label class="role-option"><input type="checkbox" name="optional-role" value="white_wolf" /> 🐺 大狼</label>
           </div>
         </div>
 
@@ -158,8 +175,8 @@
           <div class="role-card__desc">村人陣営。毎夜自分以外の1人を護衛し、襲撃から守れる</div>
         </div>
         <div class="role-card role-card--werewolf">
-          <div class="role-card__name">🃏 狂人</div>
-          <div class="role-card__desc">人狼陣営。村人だが、勝利条件は人狼と同じ</div>
+          <div class="role-card__name">🤪 狂人</div>
+          <div class="role-card__desc">人狼陣営。村人だが、勝利条件は人狼と同じ。誰が人狼かは分からない</div>
         </div>
         <div class="role-card role-card--werewolf">
           <div class="role-card__name">🐺 人狼</div>

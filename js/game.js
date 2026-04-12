@@ -14,6 +14,7 @@ class GameState {
       totalPlayers: 9,
       werewolfCount: 2,
       optionalRoles: [ROLES.SEER.id, ROLES.MEDIUM.id, ROLES.HUNTER.id, ROLES.MADMAN.id],
+      preferredRole: '',
       aiApiKey: '',
       aiModel: 'gemini-3.0-flash',
       logicAiModel: 'gemini-3.0-flash',
@@ -71,8 +72,18 @@ class GameState {
     const total = this.settings.totalPlayers;
     const werewolfCount = this.settings.werewolfCount;
     const optionalRoles = this.settings.optionalRoles || [];
+    const preferredRole = this.settings.preferredRole || '';
     const preset = buildRoleDeck(total, werewolfCount, optionalRoles);
     const shuffled = [...preset].sort(() => Math.random() - 0.5);
+
+    // 希望役職が設定されていれば人間プレイヤー（index 0）に割り当て
+    if (preferredRole) {
+      const idx = shuffled.findIndex((r) => r.id === preferredRole);
+      if (idx >= 0) {
+        [shuffled[0], shuffled[idx]] = [shuffled[idx], shuffled[0]];
+      }
+    }
+
     this.players.forEach((player, index) => {
       player.role = shuffled[index] || ROLES.VILLAGER;
     });
@@ -203,7 +214,7 @@ class GameState {
       if (target) {
         results.seerResult = {
           target,
-          isWerewolf: target.role?.team === TEAMS.WEREWOLF,
+          isWerewolf: isSeerWerewolf(target.role),
         };
       }
     }

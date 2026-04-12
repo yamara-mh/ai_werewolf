@@ -35,7 +35,7 @@
             <option value="seer">🔮 占い師</option>
             <option value="medium">🪬 霊媒師</option>
             <option value="hunter">🛡️ 騎士</option>
-            <option value="madman">🃏 狂人</option>
+            <option value="madman">🤪 狂人</option>
             <option value="werewolf">🐺 人狼</option>
             <option value="shared">🤝 共有者</option>
             <option value="cat">🐈 猫又</option>
@@ -59,6 +59,24 @@
       <div id="player-list"></div>
     </aside>
 
+  </div>
+
+  <!-- 投票モーダル -->
+  <div id="vote-modal" class="modal-overlay hidden">
+    <div class="modal modal--action">
+      <h2 class="modal__title">🗳️ 投票先を選ぶ</h2>
+      <div id="vote-modal-player-list" class="modal-player-list"></div>
+      <button id="vote-modal-back-btn" class="btn btn--secondary mt-2">戻る</button>
+    </div>
+  </div>
+
+  <!-- 夜アクションモーダル -->
+  <div id="night-modal" class="modal-overlay hidden">
+    <div class="modal modal--action">
+      <h2 class="modal__title" id="night-modal-title">🌙 対象を選ぶ</h2>
+      <div id="night-modal-player-list" class="modal-player-list"></div>
+      <button id="night-modal-back-btn" class="btn btn--secondary mt-2">戻る</button>
+    </div>
   </div>
 
   <!-- ゲーム終了モーダル -->

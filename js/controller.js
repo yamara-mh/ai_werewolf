@@ -30,6 +30,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const logicAiModal = document.getElementById('logic-ai-modal');
   const logicAiContent = document.getElementById('logic-ai-content');
   const logicAiClose = document.getElementById('logic-ai-close');
+  const voteModal = document.getElementById('vote-modal');
+  const voteModalPlayerList = document.getElementById('vote-modal-player-list');
+  const voteModalBackBtn = document.getElementById('vote-modal-back-btn');
+  const nightModal = document.getElementById('night-modal');
+  const nightModalPlayerList = document.getElementById('night-modal-player-list');
+  const nightModalBackBtn = document.getElementById('night-modal-back-btn');
+  const bbsContainer = document.getElementById('bbs-container');
 
   // ロジックAI 発動閾値管理
   let lastLogicAiThreshold = 0;
@@ -73,10 +80,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // 投票モーダルの「戻る」ボタン
+  if (voteModalBackBtn) {
+    voteModalBackBtn.addEventListener('click', () => {
+      if (voteModal) voteModal.classList.add('hidden');
+    });
+  }
+  if (voteModal) {
+    voteModal.addEventListener('click', (e) => {
+      if (e.target === voteModal) voteModal.classList.add('hidden');
+    });
+  }
+
+  // 夜アクションモーダルの「戻る」ボタン
+  if (nightModalBackBtn) {
+    nightModalBackBtn.addEventListener('click', () => {
+      if (nightModal) nightModal.classList.add('hidden');
+    });
+  }
+  if (nightModal) {
+    nightModal.addEventListener('click', (e) => {
+      if (e.target === nightModal) nightModal.classList.add('hidden');
+    });
+  }
+
+  // co-role-select を設定に含まれる役職のみ表示
+  function setupCoRoleSelect() {
+    if (!coRoleSelect) return;
+    const optionalRoles = new Set(gs.settings.optionalRoles || []);
+    const alwaysVisible = new Set(['', 'villager', 'werewolf']);
+    Array.from(coRoleSelect.options).forEach((option) => {
+      if (alwaysVisible.has(option.value)) return;
+      option.style.display = optionalRoles.has(option.value) ? '' : 'none';
+    });
+  }
+  setupCoRoleSelect();
+
   if (bookmarkFilterBtn) {
     bookmarkFilterBtn.addEventListener('click', () => {
       const enabled = bbs.toggleBookmarkFilter();
-      bookmarkFilterBtn.classList.toggle('btn--active', enabled);
+      bookmarkFilterBtn.classList.toggle('btn--bookmark-active', enabled);
+      updateBbsContainerStyle();
     });
   }
 
@@ -156,6 +200,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- ゲーム開始 ---
   async function startGame() {
+    // 0日目: 初日占い結果を占い師に通達
+    await runDay0SeerReveal();
+
     gs.nextPhase(); // SETUP -> MORNING
     bbs.renderPhaseHeader(gs.day, gs.phase);
     gs.addSystemPost(`ゲームが始まりました！${gs.players.length}人のプレイヤーが村に集まっています。`);
@@ -165,14 +212,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     await runMorning();
   }
 
+  // --- 0日目: 初日占い結果通達 ---
+  async function runDay0SeerReveal() {
+    const seer = gs.players.find((p) => p.role?.id === ROLES.SEER.id);
+    if (!seer) return;
+
+    // 占い師以外で「人間」に見える（=isSeerWerewolfでない）プレイヤーをランダムに選ぶ
+    const targets = gs.players.filter((p) => p.id !== seer.id && !isSeerWerewolf(p.role));
+    if (targets.length === 0) return;
+    const target = targets[Math.floor(Math.random() * targets.length)];
+
+    // 人間プレイヤーが占い師の場合のみ結果を表示
+    if (humanPlayer.role?.id === ROLES.SEER.id) {
+      gs.addSystemPost(`【0日目・初日占い結果】${target.name} は人間です。（GMより占い師への秘密通達）`);
+      bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
+      gs.save();
+    }
+  }
+
   // --- フェーズUI切替 ---
   function renderPhaseUI() {
     updateHeader();
     renderPlayers();
-    if (gs.phase !== GAME_PHASES.VOTE) {
-      selectedVoteTargetId = null;
-      renderVoteSubmitButton();
-    }
+    renderChatTopActions();
 
     if (!actionArea) return;
     actionArea.innerHTML = '';
@@ -297,7 +359,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bbs.renderPhaseHeader(gs.day, gs.phase);
     updateHeader();
     selectedVoteTargetId = null;
-    renderVoteSubmitButton();
+    renderChatTopActions();
 
     // AIが投票
     const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
@@ -324,8 +386,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function showVotePanel() {
     if (!actionArea) return;
-    actionArea.innerHTML = '<p class="action-label">🗳️ プレイヤー一覧から投票先を選んでください。</p>';
+    actionArea.innerHTML = '<p class="action-label">🗳️ 「投票先を選ぶ」ボタンから投票してください。</p>';
     renderPlayers();
+    renderChatTopActions();
   }
 
   // --- 処刑フェーズ ---
@@ -408,6 +471,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // AIアクション完了を待つ
     await Promise.all(aiActionPromises);
+    // 夜アクションボタンを消す
+    renderChatTopActions();
     gs.save();
 
     // 夜アクション解決
@@ -448,34 +513,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     await runMorning();
   }
 
-  // 夜アクションパネルをPromiseで返す
+  // 夜アクションパネルをPromiseで返す（モーダル経由）
   function showNightPanelAsync() {
     return new Promise((resolve) => {
       if (!actionArea) { resolve(); return; }
       const humanRole = humanPlayer.role;
-      const alivePlayers = gs.getAlivePlayers();
-
       let label = '';
       if (isWerewolfRole(humanRole)) label = '🐺 今夜、誰を襲撃しますか？';
       else if (humanRole?.id === ROLES.SEER.id) label = '🔮 今夜、誰を占いますか？';
       else if (humanRole?.id === ROLES.HUNTER.id) label = '🛡️ 今夜、誰を護衛しますか？';
 
-      actionArea.innerHTML = `<p class="action-label">${label}</p>`;
+      actionArea.innerHTML = `<p class="action-label">${label}</p><p class="action-label">上のボタンから行動先を選んでください。</p>`;
 
-      alivePlayers
-        .filter((p) => p.id !== humanPlayer.id)
-        .forEach((player) => {
-          const btn = document.createElement('button');
-          btn.className = 'btn btn--night';
-          btn.dataset.targetId = player.id;
-          btn.textContent = player.name;
-          btn.addEventListener('click', () => {
-            gs.setNightAction(humanPlayer.id, player.id);
-            actionArea.innerHTML = '<p class="action-label">行動を登録しました。AIの行動を待っています…</p>';
-            resolve();
-          });
-          actionArea.appendChild(btn);
-        });
+      nightActionResolve = resolve;
+      renderChatTopActions();
     });
   }
 
@@ -483,6 +534,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // game.html の renderPhaseUI から直接呼ばれる場合（ページリロード後など）
     if (!actionArea) return;
     actionArea.innerHTML = '<p class="action-label">夜フェーズが進行中です…</p>';
+    renderChatTopActions();
   }
 
   // --- ゲーム終了モーダル ---
@@ -512,7 +564,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     endModal.classList.remove('hidden');
     if (actionArea) actionArea.innerHTML = '';
     selectedVoteTargetId = null;
-    renderVoteSubmitButton();
+    if (chatTopActions) chatTopActions.innerHTML = '';
   }
 
   if (restartBtn) {
@@ -527,6 +579,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  function updateBbsContainerStyle() {
+    if (!bbsContainer) return;
+    if (activePlayerFilterId) {
+      bbsContainer.style.backgroundColor = '#2a2800';
+    } else if (bbs.isBookmarkFilterEnabled) {
+      bbsContainer.style.backgroundColor = '#2a1800';
+    } else {
+      bbsContainer.style.backgroundColor = '';
+    }
+  }
+
   function renderPlayers() {
     renderPlayerList(gs.players, {
       onPlayerClick: handlePlayerCardClick,
@@ -538,28 +601,94 @@ document.addEventListener('DOMContentLoaded', async () => {
   function handlePlayerCardClick(player) {
     activePlayerFilterId = bbs.togglePlayerFilter(player.id);
     renderPlayers();
-
-    if (gs.phase !== GAME_PHASES.VOTE) return;
-    if (!player.isAlive || player.id === humanPlayer.id) return;
-    selectedVoteTargetId = selectedVoteTargetId === player.id ? null : player.id;
-    renderPlayers();
-    renderVoteSubmitButton();
+    updateBbsContainerStyle();
   }
 
-  function renderVoteSubmitButton() {
+  // --- chat-form__top のアクションボタン管理 ---
+  function renderChatTopActions() {
     if (!chatTopActions) return;
     chatTopActions.innerHTML = '';
-    if (gs.phase !== GAME_PHASES.VOTE || !selectedVoteTargetId) return;
-    const target = gs.getPlayer(selectedVoteTargetId);
-    if (!target || !target.isAlive || target.id === humanPlayer.id) return;
-    const voteBtn = document.createElement('button');
-    voteBtn.type = 'button';
-    voteBtn.className = 'btn btn--vote btn--sm';
-    voteBtn.textContent = `投票: ${target.name}`;
-    voteBtn.addEventListener('click', async () => {
-      await submitVote(target);
+
+    if (gs.phase === GAME_PHASES.VOTE) {
+      const voteBtn = document.createElement('button');
+      voteBtn.type = 'button';
+      voteBtn.className = 'btn btn--vote btn--sm';
+      voteBtn.textContent = '🗳️ 投票先を選ぶ';
+      voteBtn.addEventListener('click', () => showVoteModal());
+      chatTopActions.appendChild(voteBtn);
+    }
+
+    if (gs.phase === GAME_PHASES.NIGHT && humanPlayer.isAlive) {
+      const humanRole = humanPlayer.role;
+      let btnLabel = '';
+      if (isWerewolfRole(humanRole)) btnLabel = '🐺 襲撃先を選ぶ';
+      else if (humanRole?.id === ROLES.SEER.id) btnLabel = '🔮 占い先を選ぶ';
+      else if (humanRole?.id === ROLES.HUNTER.id) btnLabel = '🛡️ 防衛先を選ぶ';
+
+      if (btnLabel) {
+        const nightBtn = document.createElement('button');
+        nightBtn.type = 'button';
+        nightBtn.id = 'night-action-btn';
+        nightBtn.className = 'btn btn--night btn--sm';
+        nightBtn.textContent = btnLabel;
+        nightBtn.addEventListener('click', () => showNightModal());
+        chatTopActions.appendChild(nightBtn);
+      }
+    }
+  }
+
+  // --- 投票モーダル表示 ---
+  function showVoteModal() {
+    if (!voteModal || !voteModalPlayerList) return;
+    voteModalPlayerList.innerHTML = '';
+    const alivePlayers = gs.getAlivePlayers().filter(
+      (p) => p.isAlive && p.id !== humanPlayer.id
+    );
+    alivePlayers.forEach((player) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn--vote modal-player-btn';
+      btn.textContent = player.name;
+      btn.addEventListener('click', async () => {
+        const ok = window.confirm(`${player.name} に投票しますか？`);
+        if (!ok) return;
+        voteModal.classList.add('hidden');
+        await submitVote(player);
+      });
+      voteModalPlayerList.appendChild(btn);
     });
-    chatTopActions.appendChild(voteBtn);
+    voteModal.classList.remove('hidden');
+  }
+
+  // --- 夜アクションモーダル表示 ---
+  let nightActionResolve = null;
+  function showNightModal() {
+    if (!nightModal || !nightModalPlayerList) return;
+    nightModalPlayerList.innerHTML = '';
+    const alivePlayers = gs.getAlivePlayers().filter((p) => p.id !== humanPlayer.id);
+    alivePlayers.forEach((player) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn--night modal-player-btn';
+      btn.textContent = player.name;
+      btn.addEventListener('click', () => {
+        nightModal.classList.add('hidden');
+        gs.setNightAction(humanPlayer.id, player.id);
+        if (actionArea) actionArea.innerHTML = '<p class="action-label">行動を登録しました。AIの行動を待っています…</p>';
+        renderChatTopActions();
+        if (nightActionResolve) {
+          nightActionResolve();
+          nightActionResolve = null;
+        }
+      });
+      nightModalPlayerList.appendChild(btn);
+    });
+    nightModal.classList.remove('hidden');
+  }
+
+  // --- 投票確定 ---
+  function renderVoteSubmitButton() {
+    renderChatTopActions();
   }
 
   async function submitVote(target) {
@@ -575,7 +704,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bbs.renderPost(post);
     if (actionArea) actionArea.innerHTML = '';
     selectedVoteTargetId = null;
-    renderVoteSubmitButton();
+    renderChatTopActions();
     gs.save();
     await runExecution();
   }
