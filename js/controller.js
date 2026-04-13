@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     whisperToggleBtn.style.display = visible ? '' : 'none';
     if (!visible) wolfChatModeEnabled = false;
     whisperToggleBtn.classList.toggle('btn--whisper-active', wolfChatModeEnabled);
-    whisperToggleBtn.textContent = wolfChatModeEnabled ? '🐺 狼チャット オン' : '🐺 狼チャット オフ';
+    whisperToggleBtn.textContent = wolfChatModeEnabled ? '🐺 狼チャット オン' : '💬 狼チャット オフ';
   }
 
   function canHumanPostNow() {

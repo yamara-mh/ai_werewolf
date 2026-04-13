@@ -91,7 +91,7 @@ class BBS {
         breakLine: true,
       });
       const portraitSrc = `personality/portrait/${this._escape(post.playerName)}.png`;
-      const isWolfChat = post.type === 'wolf_chat' || post.type === 'whisper';
+      const isWolfChat = post.type === 'wolf_chat' || post.type === 'whisper'; // 'whisper' は後方互換
       const wolfChatClass = isWolfChat ? ' bbs-post__row--wolf-chat' : '';
       const wolfChatPrefix = isWolfChat ? '<span class="bbs-post__whisper-prefix">🐺狼チャット</span> ' : '';
       el.innerHTML = `
