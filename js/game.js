@@ -164,7 +164,11 @@ class GameState {
   // 投票集計・処刑対象の決定
   tallyVotes() {
     const counts = {};
-    Object.values(this.votes).forEach((targetId) => {
+    const aliveIdSet = new Set(this.players.filter((p) => p.isAlive).map((p) => p.id));
+    Object.entries(this.votes).forEach(([voterId, targetId]) => {
+      // 防御的に、生存者以外の票は無効扱いにする（UI外の不整合データ対策）
+      if (!aliveIdSet.has(voterId)) return;
+      if (!aliveIdSet.has(targetId)) return;
       counts[targetId] = (counts[targetId] || 0) + 1;
     });
     if (Object.keys(counts).length === 0) return { executed: null, counts: {} };
