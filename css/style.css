@@ -25,6 +25,8 @@
   --filter-player-bg: #2a2800;
   --filter-bookmark-color: #ff8800;
   --filter-bookmark-bg: #153525;
+  --bbs-name-width: 86px;
+  --dead-player-portrait-opacity: 0.45;
 }
 
 html, body {
@@ -342,9 +344,7 @@ h1, h2, h3 { line-height: 1.3; }
   font-weight: bold;
   white-space: normal;
   flex-shrink: 0;
-  width: 86px;
-  min-width: 86px;
-  max-width: 86px;
+  width: var(--bbs-name-width);
   overflow: hidden;
   line-height: 1.25;
   text-align: center;
@@ -540,7 +540,7 @@ h1, h2, h3 { line-height: 1.3; }
 }
 
 .player-card--dead .player-portrait--card {
-  opacity: 0.45;
+  opacity: var(--dead-player-portrait-opacity);
 }
 
 .player-card--active {
@@ -821,9 +821,15 @@ h1, h2, h3 { line-height: 1.3; }
   animation: actionBlink 1s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .btn--attention {
+    animation: none;
+  }
+}
+
 @keyframes actionBlink {
   0%, 100% { opacity: 1; box-shadow: none; }
-  50% { opacity: 0.62; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); }
+  50% { opacity: 0.6; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); }
 }
 
 .bbs-scroll-bottom-btn {

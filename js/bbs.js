@@ -5,6 +5,12 @@ const ROLE_BY_ID = Object.values(ROLES).reduce((map, role) => {
   map[role.id] = role;
   return map;
 }, {});
+// 現在日付判定時のスクロール位置の微小ズレ許容（px）
+// ブラウザ描画差で数pxずれるため、4pxの遊びを持たせる
+const SCROLL_POSITION_TOLERANCE = 4;
+// 下端に居ると判定するための閾値（px）
+// 投稿追加直後の行高変動を吸収するため、24px以内を「最下部付近」とみなす
+const SCROLL_NEAR_BOTTOM_THRESHOLD = 24;
 
 // プレイヤー名の表示HTML（役職COアイコン・仲間アンダーライン）を一元生成
 function buildPlayerNameHtml(name, {
@@ -226,8 +232,9 @@ class BBS {
     const headers = Array.from(this.container.querySelectorAll('.bbs-phase-header[data-day]'));
     if (headers.length === 0) return;
     const currentTop = this.container.scrollTop;
+    const currentTopEdge = Math.max(0, currentTop - SCROLL_POSITION_TOLERANCE);
     const currentHeader = headers
-      .filter((h) => h.offsetTop <= currentTop + 4)
+      .filter((h) => h.offsetTop <= currentTopEdge)
       .pop() || headers[0];
     const currentDay = Number(currentHeader.dataset.day || '1');
     const targetDay = Math.max(1, currentDay + delta);
@@ -276,8 +283,7 @@ class BBS {
 
   _isNearBottom() {
     if (!this.container) return true;
-    const threshold = 24;
-    return this.container.scrollHeight - this.container.scrollTop - this.container.clientHeight <= threshold;
+    return this.container.scrollHeight - this.container.scrollTop - this.container.clientHeight <= SCROLL_NEAR_BOTTOM_THRESHOLD;
   }
 
   _updateScrollBottomButton() {

@@ -166,6 +166,7 @@ class GameState {
     const counts = {};
     const aliveIdSet = new Set(this.players.filter((p) => p.isAlive).map((p) => p.id));
     Object.entries(this.votes).forEach(([voterId, targetId]) => {
+      // 防御的に、生存者以外の票は無効扱いにする（UI外の不整合データ対策）
       if (!aliveIdSet.has(voterId)) return;
       if (!aliveIdSet.has(targetId)) return;
       counts[targetId] = (counts[targetId] || 0) + 1;

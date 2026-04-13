@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     whisperToggleBtn.style.display = visible ? '' : 'none';
     if (!visible) whisperModeEnabled = false;
     whisperToggleBtn.classList.toggle('btn--whisper-active', whisperModeEnabled);
-    whisperToggleBtn.textContent = whisperModeEnabled ? '🐺 狼チャット' : '🤫 狼チャット';
+    whisperToggleBtn.textContent = whisperModeEnabled ? '🐺 狼チャット オン' : '🤫 狼チャット オフ';
   }
 
   function canHumanPostNow() {
