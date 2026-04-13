@@ -87,7 +87,7 @@ class LogicAI {
     const alivePlayers = gs.getAlivePlayers().map((p) => p.name).join('、');
     const deadPlayers = gs.players
       .filter((p) => !p.isAlive)
-      .map((p) => `${p.name}（${p.role?.name || '不明'}）`)
+      .map((p) => p.name)
       .join('、');
 
     const recentPosts = gs.bbsLog

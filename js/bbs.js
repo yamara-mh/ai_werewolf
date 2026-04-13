@@ -7,11 +7,27 @@ const ROLE_BY_ID = Object.values(ROLES).reduce((map, role) => {
 }, {});
 
 // プレイヤー名の表示HTML（役職COアイコン・仲間アンダーライン）を一元生成
-function buildPlayerNameHtml(name, { coRole = null, isAlly = false } = {}) {
-  const roleObj = coRole ? ROLE_BY_ID[coRole] : null;
-  const rolePrefix = roleObj ? `${roleObj.icon} ` : '';
+function buildPlayerNameHtml(name, {
+  coRole = null,
+  isAlly = false,
+  fallbackRoleId = ROLES.VILLAGER.id,
+  breakLine = false,
+} = {}) {
+  const roleObj = (coRole ? ROLE_BY_ID[coRole] : null)
+    || ROLE_BY_ID[fallbackRoleId]
+    || ROLES.VILLAGER;
+  const roleIcon = roleObj?.icon || ROLES.VILLAGER.icon;
   const allyAttr = isAlly ? ' class="ally-name"' : '';
-  return `${rolePrefix}<span${allyAttr}>${escapeHtml(name)}</span>`;
+  const separator = breakLine ? '<br />' : ' ';
+  return `<span class="player-name-icon">${roleIcon}</span>${separator}<span${allyAttr}>${escapeHtml(name)}</span>`;
+}
+
+function buildPlayerNameText(name, { coRole = null, fallbackRoleId = ROLES.VILLAGER.id } = {}) {
+  const roleObj = (coRole ? ROLE_BY_ID[coRole] : null)
+    || ROLE_BY_ID[fallbackRoleId]
+    || ROLES.VILLAGER;
+  const roleIcon = roleObj?.icon || ROLES.VILLAGER.icon;
+  return `${roleIcon} ${name}`;
 }
 
 class BBS {
@@ -23,6 +39,25 @@ class BBS {
     this.bookmarkFilterScrollTop = null;
     this.knownAllyIds = new Set();
     this.canViewWhisper = false;
+    this.suppressAutoScroll = false;
+    this.scrollBottomBtn = document.getElementById('bbs-scroll-bottom-btn');
+    this.dayScrollUpBtn = document.getElementById('bbs-day-scroll-up-btn');
+    this.dayScrollDownBtn = document.getElementById('bbs-day-scroll-down-btn');
+
+    if (this.container) {
+      this.container.addEventListener('scroll', () => this._updateScrollBottomButton());
+    }
+    if (this.scrollBottomBtn) {
+      this.scrollBottomBtn.addEventListener('click', () => {
+        this.scrollToBottom();
+      });
+    }
+    if (this.dayScrollUpBtn) {
+      this.dayScrollUpBtn.addEventListener('click', () => this.scrollByDay(-1));
+    }
+    if (this.dayScrollDownBtn) {
+      this.dayScrollDownBtn.addEventListener('click', () => this.scrollByDay(1));
+    }
   }
 
   // 投稿を一件レンダリング
@@ -41,7 +76,12 @@ class BBS {
         </div>`;
     } else {
       const isAlly = this.knownAllyIds.has(post.playerId);
-      const nameHtml = buildPlayerNameHtml(post.playerName, { coRole: post.coRole, isAlly });
+      const nameHtml = buildPlayerNameHtml(post.playerName, {
+        coRole: post.coRole,
+        isAlly,
+        fallbackRoleId: ROLES.VILLAGER.id,
+        breakLine: true,
+      });
       const portraitSrc = `personality/portrait/${this._escape(post.playerName)}.png`;
       const whisperClass = post.type === 'whisper' ? ' bbs-post__row--whisper' : '';
       const whisperPrefix = post.type === 'whisper' ? '<span class="bbs-post__whisper-prefix">🤫密談</span> ' : '';
@@ -61,13 +101,16 @@ class BBS {
     el.dataset.playerId = post.playerId || '';
     this._bindBookmarkCheckbox(el, post);
     this._applyFilterToPostElement(el);
+    const shouldStickToBottom = this._isNearBottom();
     this.container.appendChild(el);
-    this._scrollToBottom();
+    if (this.suppressAutoScroll || shouldStickToBottom) this._scrollToBottom();
+    this._updateScrollBottomButton();
   }
 
   // 全投稿を再レンダリング（フェーズヘッダーも自動挿入）
   renderAll(posts) {
     if (!this.container) return;
+    this.suppressAutoScroll = true;
     this.container.innerHTML = '';
     let lastDay = null;
     let lastPhase = null;
@@ -79,7 +122,10 @@ class BBS {
       }
       this.renderPost(post);
     });
+    this.suppressAutoScroll = false;
+    this._scrollToBottom();
     this.applyFilters();
+    this._updateScrollBottomButton();
   }
 
   togglePlayerFilter(playerId) {
@@ -117,9 +163,12 @@ class BBS {
     if (!this.container) return;
     const el = document.createElement('div');
     el.className = 'bbs-phase-header';
+    el.dataset.day = String(day);
     el.textContent = `── ${day}日目 ${this._phaseLabel(phase)} ──`;
+    const shouldStickToBottom = this._isNearBottom();
     this.container.appendChild(el);
-    this._scrollToBottom();
+    if (this.suppressAutoScroll || shouldStickToBottom) this._scrollToBottom();
+    this._updateScrollBottomButton();
   }
 
   // "タイピング中..." 表示
@@ -129,8 +178,10 @@ class BBS {
     el.className = 'bbs-typing';
     el.id = 'bbs-typing';
     el.textContent = `${playerName} が入力中...`;
+    const shouldStickToBottom = this._isNearBottom();
     this.container.appendChild(el);
-    this._scrollToBottom();
+    if (shouldStickToBottom) this._scrollToBottom();
+    this._updateScrollBottomButton();
   }
 
   removeTypingIndicator() {
@@ -163,6 +214,27 @@ class BBS {
     if (this.container) {
       this.container.scrollTop = this.container.scrollHeight;
     }
+  }
+
+  scrollToBottom() {
+    this._scrollToBottom();
+    this._updateScrollBottomButton();
+  }
+
+  scrollByDay(delta) {
+    if (!this.container || !delta) return;
+    const headers = Array.from(this.container.querySelectorAll('.bbs-phase-header[data-day]'));
+    if (headers.length === 0) return;
+    const currentTop = this.container.scrollTop;
+    const currentHeader = headers
+      .filter((h) => h.offsetTop <= currentTop + 4)
+      .pop() || headers[0];
+    const currentDay = Number(currentHeader.dataset.day || '1');
+    const targetDay = Math.max(1, currentDay + delta);
+    const targetHeader = headers.find((h) => Number(h.dataset.day || '0') === targetDay);
+    if (!targetHeader) return;
+    this.container.scrollTop = Math.max(0, targetHeader.offsetTop);
+    this._updateScrollBottomButton();
   }
 
   _bindBookmarkCheckbox(postElement, post) {
@@ -200,6 +272,18 @@ class BBS {
       visible = false;
     }
     postElement.style.display = visible ? '' : 'none';
+  }
+
+  _isNearBottom() {
+    if (!this.container) return true;
+    const threshold = 24;
+    return this.container.scrollHeight - this.container.scrollTop - this.container.clientHeight <= threshold;
+  }
+
+  _updateScrollBottomButton() {
+    if (!this.container || !this.scrollBottomBtn) return;
+    const isNearBottom = this._isNearBottom();
+    this.scrollBottomBtn.classList.toggle('hidden', isNearBottom);
   }
 
   setKnownAllies({ allyIds = [], canViewWhisper = false } = {}) {
