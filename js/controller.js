@@ -46,7 +46,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   let dayFirstPosted = false;
   let activePlayerFilterId = null;
   let selectedVoteTargetId = null;
-  let whisperModeEnabled = false;
+  let wolfChatModeEnabled = false;
+  // 通常チャットと狼チャットそれぞれの入力テキストを保持
+  let normalChatDraft = '';
+  let wolfChatDraft = '';
 
   const roleById = Object.values(ROLES).reduce((map, role) => {
     map[role.id] = role;
@@ -149,19 +152,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!whisperToggleBtn) return;
     const visible = isHumanActualWolf() && humanPlayer.isAlive && gs.phase !== GAME_PHASES.END;
     whisperToggleBtn.style.display = visible ? '' : 'none';
-    if (!visible) whisperModeEnabled = false;
-    whisperToggleBtn.classList.toggle('btn--whisper-active', whisperModeEnabled);
-    whisperToggleBtn.textContent = whisperModeEnabled ? '🐺 狼チャット オン' : '🤫 狼チャット オフ';
+    if (!visible) wolfChatModeEnabled = false;
+    whisperToggleBtn.classList.toggle('btn--whisper-active', wolfChatModeEnabled);
+    whisperToggleBtn.textContent = wolfChatModeEnabled ? '🐺 狼チャット オン' : '🐺 狼チャット オフ';
   }
 
   function canHumanPostNow() {
     if (!humanPlayer?.isAlive) return false;
-    if (gs.phase === GAME_PHASES.NIGHT || gs.phase === GAME_PHASES.END) return false;
+    // 夜でも人狼専用チャットなら投稿可能
+    if (gs.phase === GAME_PHASES.NIGHT) return wolfChatModeEnabled && isHumanActualWolf();
+    if (gs.phase === GAME_PHASES.END) return false;
     return true;
   }
 
   function updateChatAvailability() {
     const canPost = canHumanPostNow();
+    const chatBar = document.querySelector('.chat-bar');
     if (chatInput) {
       chatInput.disabled = !canPost;
       if (!canPost) {
@@ -169,11 +175,15 @@ document.addEventListener('DOMContentLoaded', async () => {
           ? '夜の間は投稿できません'
           : '死亡中は投稿できません';
       } else {
-        chatInput.placeholder = '発言を入力（Ctrl + Enterで投稿）';
+        chatInput.placeholder = wolfChatModeEnabled
+          ? '🐺 人狼専用チャット（Ctrl + Enterで投稿）'
+          : '発言を入力（Ctrl + Enterで投稿）';
       }
+      chatInput.classList.toggle('chat-input--wolf-chat', wolfChatModeEnabled && isHumanActualWolf());
     }
     if (chatSubmitBtn) chatSubmitBtn.disabled = !canPost;
-    if (whisperToggleBtn) whisperToggleBtn.disabled = !canPost;
+    if (whisperToggleBtn) whisperToggleBtn.disabled = !humanPlayer?.isAlive || gs.phase === GAME_PHASES.END;
+    if (chatBar) chatBar.classList.toggle('chat-bar--wolf-chat', wolfChatModeEnabled && isHumanActualWolf());
   }
 
   function getPlayerDisplayText(player) {
@@ -200,8 +210,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (whisperToggleBtn) {
     whisperToggleBtn.addEventListener('click', () => {
       if (!isHumanActualWolf()) return;
-      whisperModeEnabled = !whisperModeEnabled;
+      // 現在のドラフトを保存してから切り替え
+      if (chatInput) {
+        if (wolfChatModeEnabled) {
+          wolfChatDraft = chatInput.value;
+        } else {
+          normalChatDraft = chatInput.value;
+        }
+      }
+      wolfChatModeEnabled = !wolfChatModeEnabled;
+      // 切り替え後のドラフトを復元
+      if (chatInput) {
+        chatInput.value = wolfChatModeEnabled ? wolfChatDraft : normalChatDraft;
+      }
       updateWhisperButton();
+      updateChatAvailability();
     });
   }
 
@@ -245,11 +268,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         playerName: humanPlayer.name,
         playerId: humanPlayer.id,
         content: text,
-        type: whisperModeEnabled ? 'whisper' : 'speech',
+        type: wolfChatModeEnabled ? 'wolf_chat' : 'speech',
         coRole: humanPlayer.coRole,
       });
       bbs.renderPost(post);
       if (chatInput) chatInput.value = '';
+      // ドラフトもリセット
+      if (wolfChatModeEnabled) wolfChatDraft = '';
+      else normalChatDraft = '';
       renderPlayers();
       gs.save();
 
@@ -500,16 +526,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       const voteText = Object.entries(counts)
         .map(([id, c]) => {
           const p = gs.getPlayer(id);
-          return `${p ? getPlayerDisplayText(p) : id}: ${c}票`;
+          return `${p ? p.name : id}: ${c}票`;
         })
         .join('、');
 
       gs.addSystemPost(`投票結果：${voteText}`);
       bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
       await sleep(800);
-      gs.addSystemPost(`${getPlayerDisplayText(executed)} が処刑されました。`);
+      gs.addSystemPost(`${executed.name} が処刑されました。`);
       bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
       renderPlayers();
+
+      // 霊媒師（人間）への秘密通達
+      if (humanPlayer.isAlive && humanPlayer.role?.id === ROLES.MEDIUM.id) {
+        gs.addSystemPost(`【霊媒結果】${executed.name} は ${executed.role?.icon} ${executed.role?.name} でした。（GMより霊媒師への秘密通達）`);
+        bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
+      }
     } else {
       gs.addSystemPost('投票が成立しませんでした。本日の処刑は見送られます。');
       bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
@@ -576,7 +608,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const results = gs.resolveNightActions();
 
     if (results.attacked) {
-      gs.addSystemPost(`朝になりました。${getPlayerDisplayText(results.attacked)} が昨夜、人狼に襲撃されました…`);
+      gs.addSystemPost(`朝になりました。${results.attacked.name} が昨夜、人狼に襲撃されました…`);
     } else if (results.saved) {
       gs.addSystemPost('朝になりました。昨夜は騎士の活躍により、犠牲者はいませんでした。');
     } else {
@@ -765,12 +797,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!nightModal || !nightModalPlayerList) return;
     nightModalPlayerList.innerHTML = '';
     const alivePlayers = gs.getAlivePlayers().filter((p) => p.id !== humanPlayer.id);
+    const humanRole = humanPlayer.role;
     alivePlayers.forEach((player) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn btn--night modal-player-btn';
       btn.innerHTML = buildModalPlayerButtonContent(player);
       btn.addEventListener('click', () => {
+        let confirmMsg = '';
+        if (isWerewolfRole(humanRole)) {
+          confirmMsg = `${getPlayerDisplayText(player)} を襲撃しますか？`;
+        } else if (humanRole?.id === ROLES.SEER.id) {
+          confirmMsg = `${getPlayerDisplayText(player)} を占いますか？`;
+        } else if (humanRole?.id === ROLES.HUNTER.id) {
+          confirmMsg = `${getPlayerDisplayText(player)} を護衛しますか？`;
+        } else {
+          confirmMsg = `${getPlayerDisplayText(player)} を選択しますか？`;
+        }
+        const ok = window.confirm(confirmMsg);
+        if (!ok) return;
         nightModal.classList.add('hidden');
         gs.setNightAction(humanPlayer.id, player.id);
         renderChatTopActions();

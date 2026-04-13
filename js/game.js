@@ -51,6 +51,7 @@ class GameState {
       isHuman: true,
       personality: null,
       coRole: null,
+      deathReason: null,
     });
 
     // AIプレイヤー
@@ -64,6 +65,7 @@ class GameState {
         isHuman: false,
         personality: p.style,
         coRole: null,
+        deathReason: null,
       });
     }
   }
@@ -177,7 +179,10 @@ class GameState {
     // 同票の場合はランダム
     const executedId = candidates[Math.floor(Math.random() * candidates.length)];
     const executed = this.players.find((p) => p.id === executedId);
-    if (executed) executed.isAlive = false;
+    if (executed) {
+      executed.isAlive = false;
+      executed.deathReason = 'execution';
+    }
     return { executed, counts };
   }
 
@@ -218,6 +223,7 @@ class GameState {
           results.saved = true;
         } else {
           target.isAlive = false;
+          target.deathReason = 'attack';
           results.attacked = target;
         }
       }
