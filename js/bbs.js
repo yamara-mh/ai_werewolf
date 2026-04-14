@@ -23,9 +23,11 @@ function buildPlayerNameHtml(name, {
     || ROLE_BY_ID[fallbackRoleId]
     || ROLES.VILLAGER;
   const roleIcon = roleObj?.icon || ROLES.VILLAGER.icon;
-  const allyAttr = isAlly ? ' class="ally-name"' : '';
   const separator = breakLine ? '<br />' : ' ';
-  return `<span class="player-name-icon">${roleIcon}</span>${separator}<span${allyAttr}>${escapeHtml(name)}</span>`;
+  // 仲間（ally）の場合はCOカラーを付けない、それ以外はcoRoleに基づくカラークラスを付ける
+  const colorClass = (!isAlly && coRole) ? ` player-name--co-${coRole}` : '';
+  const allyClass = isAlly ? ' ally-name' : '';
+  return `<span class="player-name-icon">${roleIcon}</span>${separator}<span class="player-name-text${colorClass}${allyClass}">${escapeHtml(name)}</span>`;
 }
 
 function buildPlayerNameText(name, { coRole = null, fallbackRoleId = ROLES.VILLAGER.id } = {}) {
@@ -89,16 +91,17 @@ class BBS {
         breakLine: true,
       });
       const portraitSrc = `personality/portrait/${this._escape(post.playerName)}.png`;
-      const whisperClass = post.type === 'whisper' ? ' bbs-post__row--whisper' : '';
-      const whisperPrefix = post.type === 'whisper' ? '<span class="bbs-post__whisper-prefix">🤫密談</span> ' : '';
+      const isWolfChat = post.type === 'wolf_chat' || post.type === 'whisper'; // 'whisper' は後方互換
+      const wolfChatClass = isWolfChat ? ' bbs-post__row--wolf-chat' : '';
+      const wolfChatPrefix = isWolfChat ? '<span class="bbs-post__whisper-prefix">🐺狼チャット</span> ' : '';
       el.innerHTML = `
-        <div class="bbs-post__row${whisperClass}">
+        <div class="bbs-post__row${wolfChatClass}">
           <label class="bbs-post__bookmark">
             <input type="checkbox" class="bbs-post__bookmark-checkbox" />
           </label>
           <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--post" alt="" />
           <span class="bbs-post__name">${nameHtml}</span>
-          <span class="bbs-post__body">${whisperPrefix}${this._escape(post.content)}</span>
+          <span class="bbs-post__body">${wolfChatPrefix}${this._escape(post.content)}</span>
         </div>`;
     }
 
@@ -239,7 +242,13 @@ class BBS {
     const currentDay = Number(currentHeader.dataset.day || '1');
     const targetDay = Math.max(1, currentDay + delta);
     const targetHeader = headers.find((h) => Number(h.dataset.day || '0') === targetDay);
-    if (!targetHeader) return;
+    if (!targetHeader) {
+      if (delta > 0) {
+        this._scrollToBottom();
+        this._updateScrollBottomButton();
+      }
+      return;
+    }
     this.container.scrollTop = Math.max(0, targetHeader.offsetTop);
     this._updateScrollBottomButton();
   }
@@ -275,8 +284,8 @@ class BBS {
     if (this.isBookmarkFilterEnabled) {
       visible = visible && postType !== 'system' && this.bookmarkedPostIds.has(postId);
     }
-    if (postType === 'whisper' && !this.canViewWhisper) {
-      visible = false;
+    if (postType === 'whisper' || postType === 'wolf_chat') {
+      if (!this.canViewWhisper) visible = false;
     }
     postElement.style.display = visible ? '' : 'none';
   }
@@ -318,7 +327,11 @@ function renderPlayerList(players, options = {}) {
     el.dataset.playerId = player.id;
 
     const humanClass = player.isHuman ? 'player-card--human' : '';
-    const deadMark = player.isAlive ? '' : '<span class="badge badge--dead">死亡</span>';
+    let deadLabel = '';
+    if (!player.isAlive) {
+      const text = player.deathReason === 'attack' ? '襲撃' : '処刑';
+      deadLabel = `<span class="player-dead-label">${text}</span>`;
+    }
     const portraitSrc = `personality/portrait/${escapeHtml(player.name)}.png`;
     const isAlly = italicPlayerIds.has(player.id);
     const nameHtml = buildPlayerNameHtml(player.name, { coRole: player.coRole, isAlly });
@@ -327,10 +340,12 @@ function renderPlayerList(players, options = {}) {
 
     el.innerHTML = `
       <span class="player-card__name">
-        <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
+        <span class="player-portrait-wrapper">
+          <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
+          ${deadLabel}
+        </span>
         ${nameHtml}
-      </span>
-      ${deadMark}`;
+      </span>`;
     if (typeof onPlayerClick === 'function') {
       el.addEventListener('click', () => onPlayerClick(player));
     }
