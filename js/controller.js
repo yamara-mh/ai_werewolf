@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bbs = new BBS('bbs-container');
   const aiPlayer = new AIPlayer(gs);
   const logicAi = new LogicAI(gs);
+  const batchConversationAI = new BatchConversationAI(gs);
   const humanPlayer = gs.getHumanPlayer();
 
   // --- UI要素 ---
@@ -440,7 +441,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
     const firstHalf = aiPlayers.slice(0, Math.ceil(aiPlayers.length / 2));
 
-    await runAISpeeches(firstHalf);
+    await runBatchAISpeeches(firstHalf);
 
     gs.save();
   }
@@ -449,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 残りのAIが発言
     const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
     const secondHalf = aiPlayers.slice(Math.ceil(aiPlayers.length / 2));
-    await runAISpeeches(secondHalf);
+    await runBatchAISpeeches(secondHalf);
 
     // 投票フェーズへ
     await sleep(500);
@@ -458,7 +459,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     await runVote();
   }
 
-  // --- AIの発言ループ ---
+  // --- AIの発言ループ（バッチ生成）---
+  // バッチAPIコールで複数AIの発言と状況整理を一括生成し、順次表示します。
+  // APIキーがない場合やバッチ生成に失敗した場合は個別生成にフォールバックします。
+  async function runBatchAISpeeches(players) {
+    if (players.length === 0) return;
+
+    const { aiApiKey } = gs.settings;
+    if (aiApiKey) {
+      const result = await batchConversationAI.generate(players);
+
+      // 状況整理を更新
+      if (result.summary) {
+        const { chat, prediction } = result.summary;
+        const parts = [];
+        if (chat) parts.push(`【状況まとめ】${chat}`);
+        if (prediction) parts.push(`【役職予想】${prediction}`);
+        if (parts.length > 0) {
+          gs.logicAiOutput = parts.join('\n');
+          gs.save();
+        }
+      }
+
+      // 有効な投稿があればバッチ結果を使用
+      if (result.posts.length > 0) {
+        for (const postData of result.posts) {
+          const player = players.find((p) => p.name === postData.name);
+          if (!player) continue;
+
+          await sleep(800 + Math.random() * 700);
+          bbs.showTypingIndicator(player.name);
+          await sleep(1000 + Math.random() * 1000);
+          bbs.removeTypingIndicator();
+
+          const post = gs.addPost({
+            playerName: player.name,
+            playerId: player.id,
+            content: postData.talk,
+            coRole: player.coRole,
+          });
+          bbs.renderPost(post);
+          gs.save();
+        }
+        return;
+      }
+    }
+
+    // フォールバック: 個別生成
+    await runAISpeeches(players);
+  }
+
+  // --- AIの発言ループ（個別生成）---
   async function runAISpeeches(players) {
     for (const player of players) {
       await sleep(800 + Math.random() * 700);
