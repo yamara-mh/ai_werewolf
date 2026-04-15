@@ -48,7 +48,10 @@ game.html           # ゲームページ（BBS UI）
 css/style.css       # スタイル
 js/config.js        # 役職・定数定義
 js/game.js          # ゲーム状態管理
-js/ai.js            # AIプレイヤーロジック
+js/ai.js            # AI API呼び出し共通処理
+js/ai_logic.js      # ロジックAI分析
+js/ai_player.js     # AIプレイヤー発言・行動生成
+js/ai_batch.js      # AIバッチ会話/投票生成
 js/bbs.js           # BBS レンダリング
 js/main.js          # ロビーエントリーポイント
 js/controller.js    # ゲームコントローラー
