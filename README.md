@@ -31,6 +31,14 @@ https://yamara-mh.github.io/ai_werewolf/
 
 - OpenAI / Gemini API Key（任意）を設定するとAIが本格的に発言・推理します
 - 未設定でもサンプル発言でゲームを進行できます
+- 利用可能モデル:
+  - gemini-flash-latest
+  - gemini-pro-latest
+  - gemini-flash-lite-latest
+  - gpt-5.4-mini
+  - gpt-5.4
+  - gpt-5.4-nano
+- 推論レベル（reasoning effort）: low / medium / high
 
 ## ファイル構成
 

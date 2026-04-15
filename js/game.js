@@ -16,8 +16,9 @@ class GameState {
       optionalRoles: [ROLES.SEER.id, ROLES.MEDIUM.id, ROLES.HUNTER.id, ROLES.MADMAN.id],
       preferredRole: '',
       aiApiKey: '',
-      aiModel: 'gemini-3.0-flash',
-      logicAiModel: 'gemini-3.0-flash',
+      aiModel: 'gemini-flash-latest',
+      logicAiModel: 'gemini-flash-latest',
+      reasoningEffort: 'medium',
       roomLevel: 'intermediate',
       showLogicAi: true,
     };
