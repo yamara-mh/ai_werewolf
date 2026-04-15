@@ -517,7 +517,8 @@ class BatchConversationAI {
       if (parsed.data && typeof parsed.data === 'object' && Array.isArray(parsed.data.posts)) {
         return { posts: parsed.data.posts, summary: parsed.data.summary || null };
       }
-      for (const key of ['conversations', 'messages', 'talks']) {
+      const alternatePostKeys = ['conversations', 'messages', 'talks'];
+      for (const key of alternatePostKeys) {
         if (Array.isArray(parsed[key])) {
           return { posts: parsed[key], summary: parsed.summary || null };
         }
@@ -585,11 +586,13 @@ class BatchConversationAI {
   }
 
   _findMatchingClosingIndex(text, startIndex, openChar, closeChar) {
-    let depth = 0;
+    if (text[startIndex] !== openChar) return -1;
+
+    let depth = 1;
     let inString = false;
     let escaped = false;
 
-    for (let i = startIndex; i < text.length; i += 1) {
+    for (let i = startIndex + 1; i < text.length; i += 1) {
       const ch = text[i];
 
       if (inString) {
