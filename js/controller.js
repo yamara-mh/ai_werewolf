@@ -487,9 +487,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           const player = players.find((p) => p.name === postData.name);
           if (!player) continue;
 
-          await sleep(800 + Math.random() * 700);
+          const delayMs = postData.delay != null
+            ? Math.max(400, Math.min(5000, postData.delay * 1000))
+            : (800 + Math.random() * 700);
+          await sleep(delayMs);
           bbs.showTypingIndicator(player.name);
-          await sleep(1000 + Math.random() * 1000);
+          await sleep(600 + Math.random() * 800);
           bbs.removeTypingIndicator();
 
           const post = gs.addPost({
@@ -893,19 +896,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     bbs.renderPost(post);
 
     const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
-    for (const player of aiPlayers) {
-      const decidedTarget = await aiPlayer.decideVote(player);
-      if (!decidedTarget) continue;
-      gs.castVote(player.id, decidedTarget.id);
+
+    const voteResult = await batchConversationAI.generateVotes(aiPlayers);
+    for (const voteData of voteResult.votes) {
+      const player = aiPlayers.find((p) => p.name === voteData.name);
+      if (!player) continue;
+
+      const delayMs = voteData.delay != null
+        ? Math.max(300, Math.min(3000, voteData.delay * 1000))
+        : 400;
+      await sleep(delayMs);
+
+      // 投票先プレイヤーを名前で解決
+      const decidedTarget = gs.getAlivePlayers().find((p) => p.name === voteData.vote);
+      if (decidedTarget) {
+        gs.castVote(player.id, decidedTarget.id);
+      } else {
+        console.warn(`AI投票: "${player.name}" の投票先 "${voteData.vote}" が見つかりません`);
+      }
+
+      const talkContent = voteData.talk && voteData.talk.trim()
+        ? voteData.talk
+        : decidedTarget ? `${getPlayerDisplayText(decidedTarget)} に投票します。` : '（投票）';
       const aiVotePost = gs.addPost({
         playerName: player.name,
         playerId: player.id,
-        content: `${getPlayerDisplayText(decidedTarget)} に投票します。`,
+        content: talkContent,
         type: 'vote',
         coRole: player.coRole,
       });
       bbs.renderPost(aiVotePost);
-      await sleep(400);
     }
 
     selectedVoteTargetId = null;
