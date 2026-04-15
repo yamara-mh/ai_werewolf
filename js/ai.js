@@ -477,16 +477,7 @@ class BatchConversationAI {
 
   _parseResponse(responseText, targetPlayers) {
     try {
-      // コードブロックがあれば中身を取り出す
-      const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-      const jsonStr = codeBlockMatch ? codeBlockMatch[1].trim() : responseText.trim();
-
-      // 最外のJSONオブジェクトを切り出す
-      const start = jsonStr.indexOf('{');
-      const end = jsonStr.lastIndexOf('}');
-      if (start === -1 || end === -1) throw new Error('JSONオブジェクトが見つかりません');
-
-      const data = JSON.parse(jsonStr.slice(start, end + 1));
+      const data = this._normalizeConversationJson(responseText);
       if (!Array.isArray(data.posts)) throw new Error('postsが配列ではありません');
 
       const validNames = new Set(targetPlayers.map((p) => p.name));
@@ -514,6 +505,77 @@ class BatchConversationAI {
       console.warn('バッチ会話JSONパースエラー:', e, responseText);
       return this._fallback(targetPlayers);
     }
+  }
+
+  _normalizeConversationJson(responseText) {
+    const parsed = this._extractJsonFromText(responseText);
+    if (Array.isArray(parsed)) {
+      return { posts: parsed, summary: null };
+    }
+    if (parsed && typeof parsed === 'object') {
+      if (Array.isArray(parsed.posts)) return parsed;
+      if (parsed.data && typeof parsed.data === 'object' && Array.isArray(parsed.data.posts)) {
+        return { posts: parsed.data.posts, summary: parsed.data.summary || null };
+      }
+      for (const key of ['conversations', 'messages', 'talks']) {
+        if (Array.isArray(parsed[key])) {
+          return { posts: parsed[key], summary: parsed.summary || null };
+        }
+      }
+    }
+    throw new Error('postsが配列ではありません');
+  }
+
+  _extractJsonFromText(responseText) {
+    const text = String(responseText || '').trim();
+    if (!text) throw new Error('応答が空です');
+
+    const candidates = [text];
+    const codeBlocks = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
+    for (const match of codeBlocks) {
+      const body = (match[1] || '').trim();
+      if (body) candidates.unshift(body);
+    }
+
+    for (const candidate of candidates) {
+      const parsed = this._tryParseJsonCandidate(candidate);
+      if (parsed !== null) return parsed;
+    }
+    throw new Error('JSONオブジェクトが見つかりません');
+  }
+
+  _tryParseJsonCandidate(text) {
+    const parseMaybeNestedJson = (raw) => {
+      const first = JSON.parse(raw);
+      if (typeof first === 'string') return JSON.parse(first);
+      return first;
+    };
+
+    try {
+      return parseMaybeNestedJson(text.trim());
+    } catch (_) {
+      // ignore
+    }
+
+    const starts = [];
+    const objectStart = text.indexOf('{');
+    if (objectStart !== -1) starts.push({ index: objectStart, close: '}' });
+    const arrayStart = text.indexOf('[');
+    if (arrayStart !== -1) starts.push({ index: arrayStart, close: ']' });
+    starts.sort((a, b) => a.index - b.index);
+
+    for (const { index, close } of starts) {
+      const end = text.lastIndexOf(close);
+      if (end <= index) continue;
+      const sliced = text.slice(index, end + 1).trim();
+      if (!sliced) continue;
+      try {
+        return parseMaybeNestedJson(sliced);
+      } catch (_) {
+        // ignore
+      }
+    }
+    return null;
   }
 
   // 投票フェーズ：AIプレイヤー全員の投票先・発言を一括生成
