@@ -547,7 +547,13 @@ class BatchConversationAI {
   _tryParseJsonCandidate(text) {
     const parseMaybeNestedJson = (raw) => {
       const first = JSON.parse(raw);
-      if (typeof first === 'string') return JSON.parse(first);
+      if (typeof first === 'string') {
+        try {
+          return JSON.parse(first);
+        } catch (_) {
+          return first;
+        }
+      }
       return first;
     };
 
@@ -559,13 +565,13 @@ class BatchConversationAI {
 
     const starts = [];
     const objectStart = text.indexOf('{');
-    if (objectStart !== -1) starts.push({ index: objectStart, close: '}' });
+    if (objectStart !== -1) starts.push({ index: objectStart, open: '{', close: '}' });
     const arrayStart = text.indexOf('[');
-    if (arrayStart !== -1) starts.push({ index: arrayStart, close: ']' });
+    if (arrayStart !== -1) starts.push({ index: arrayStart, open: '[', close: ']' });
     starts.sort((a, b) => a.index - b.index);
 
-    for (const { index, close } of starts) {
-      const end = text.lastIndexOf(close);
+    for (const { index, open, close } of starts) {
+      const end = this._findMatchingClosingIndex(text, index, open, close);
       if (end <= index) continue;
       const sliced = text.slice(index, end + 1).trim();
       if (!sliced) continue;
@@ -576,6 +582,43 @@ class BatchConversationAI {
       }
     }
     return null;
+  }
+
+  _findMatchingClosingIndex(text, startIndex, openChar, closeChar) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = startIndex; i < text.length; i += 1) {
+      const ch = text[i];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (ch === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (ch === '"') inString = false;
+        continue;
+      }
+
+      if (ch === '"') {
+        inString = true;
+        continue;
+      }
+      if (ch === openChar) {
+        depth += 1;
+        continue;
+      }
+      if (ch === closeChar) {
+        depth -= 1;
+        if (depth === 0) return i;
+      }
+    }
+    return -1;
   }
 
   // 投票フェーズ：AIプレイヤー全員の投票先・発言を一括生成
