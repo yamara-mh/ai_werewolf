@@ -163,8 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
           .map((input) => input.value),
         preferredRole: document.getElementById('preferred-role')?.value || '',
         aiApiKey: apiKeyInput ? apiKeyInput.value.trim() : '',
-        aiModel: document.getElementById('ai-model')?.value || 'gemini-3.0-flash',
-        logicAiModel: document.getElementById('logic-ai-model')?.value || 'gemini-3.0-flash',
+        aiModel: document.getElementById('ai-model')?.value || 'gemini-flash-latest',
+        logicAiModel: document.getElementById('logic-ai-model')?.value || 'gemini-flash-latest',
+        reasoningEffort: document.getElementById('reasoning-effort')?.value || 'medium',
         roomLevel: document.getElementById('room-level')?.value || 'intermediate',
         showLogicAi: document.getElementById('show-logic-ai')?.checked ?? true,
       };

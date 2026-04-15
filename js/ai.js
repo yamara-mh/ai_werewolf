@@ -4,7 +4,10 @@
 // --- 共通APIコール ---
 
 async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
-  const { jsonMode = false, maxTokens = 400 } = options;
+  const { jsonMode = false, maxTokens = 400, reasoningEffort = 'medium' } = options;
+  const validReasoningEffort = ['low', 'medium', 'high'].includes(reasoningEffort)
+    ? reasoningEffort
+    : 'medium';
 
   if (model.startsWith('gemini-')) {
     const generationConfig = { maxOutputTokens: maxTokens, temperature: 0.8 };
@@ -37,13 +40,14 @@ async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
   }
 
   const openAiBody = {
-    model: model || 'gpt-4o-mini',
+    model: model || 'gpt-5.4-mini',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
     max_tokens: maxTokens,
     temperature: 0.8,
+    reasoning_effort: validReasoningEffort,
   };
   if (jsonMode) openAiBody.response_format = { type: 'json_object' };
 
@@ -74,16 +78,16 @@ class LogicAI {
 
   async analyze() {
     const gs = this.gameState;
-    const { aiApiKey, logicAiModel } = gs.settings;
+    const { aiApiKey, logicAiModel, reasoningEffort } = gs.settings;
 
     if (!aiApiKey) return this._fallbackAnalysis();
 
-    const model = logicAiModel || 'gpt-4o-mini';
+    const model = logicAiModel || 'gemini-flash-latest';
     const systemPrompt = 'あなたは人狼ゲームを観察するロジックAIです。村人の視点でチャットを分析し、確定情報・役職予想・人狼ライン候補・推奨行動を簡潔に整理してください。日本語で出力してください。';
     const userPrompt = this._buildAnalysisPrompt();
 
     try {
-      return await callAI(systemPrompt, userPrompt, aiApiKey, model);
+      return await callAI(systemPrompt, userPrompt, aiApiKey, model, { reasoningEffort });
     } catch (e) {
       console.warn('ロジックAI分析エラー:', e);
       return this._fallbackAnalysis();
@@ -136,7 +140,7 @@ class AIPlayer {
   // AIプレイヤーの発言を生成
   async generateSpeech(aiPlayer) {
     const gs = this.gameState;
-    const { aiApiKey, aiModel } = gs.settings;
+    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
 
     const systemPrompt = this._buildSystemPrompt(aiPlayer);
     const userPrompt = this._buildSpeechPrompt(aiPlayer);
@@ -146,7 +150,7 @@ class AIPlayer {
     }
 
     try {
-      const response = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel);
+      const response = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, { reasoningEffort });
       return response;
     } catch (e) {
       console.warn(`AI発言生成エラー (${aiPlayer.name}):`, e);
@@ -157,7 +161,7 @@ class AIPlayer {
   // AIプレイヤーの投票先を決定
   async decideVote(aiPlayer) {
     const gs = this.gameState;
-    const { aiApiKey, aiModel } = gs.settings;
+    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
     const alivePlayers = gs.getAlivePlayers().filter((p) => p.id !== aiPlayer.id);
 
     if (!aiApiKey || alivePlayers.length === 0) {
@@ -168,7 +172,7 @@ class AIPlayer {
     const userPrompt = this._buildVotePrompt(aiPlayer, alivePlayers);
 
     try {
-      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel);
+      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, { reasoningEffort });
       const target = this._parseVoteTarget(responseText, alivePlayers);
       return target || this._fallbackVote(aiPlayer, alivePlayers);
     } catch (e) {
@@ -180,7 +184,7 @@ class AIPlayer {
   // AIプレイヤーの夜アクション対象を決定
   async decideNightAction(aiPlayer) {
     const gs = this.gameState;
-    const { aiApiKey, aiModel } = gs.settings;
+    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
 
     // 人狼は人間以外の村人を優先して狙う（またはAI村人）
     const alivePlayers = gs.getAlivePlayers().filter((p) => p.id !== aiPlayer.id);
@@ -194,7 +198,7 @@ class AIPlayer {
     const userPrompt = this._buildNightActionPrompt(aiPlayer, alivePlayers);
 
     try {
-      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel);
+      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, { reasoningEffort });
       const target = this._parseVoteTarget(responseText, alivePlayers);
       return target || this._fallbackNightAction(aiPlayer, alivePlayers);
     } catch (e) {
@@ -358,7 +362,7 @@ class BatchConversationAI {
   // 戻り値: { posts: [{name, thinking, talk}], summary: {chat, prediction} | null }
   async generate(targetPlayers) {
     const gs = this.gameState;
-    const { aiApiKey, aiModel } = gs.settings;
+    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
 
     if (!aiApiKey || targetPlayers.length === 0) {
       return this._fallback(targetPlayers);
@@ -371,6 +375,7 @@ class BatchConversationAI {
       const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
         maxTokens: 1500,
+        reasoningEffort,
       });
       return this._parseResponse(responseText, targetPlayers);
     } catch (e) {
@@ -515,7 +520,7 @@ class BatchConversationAI {
   // 戻り値: { votes: [{name, thinking, vote, talk, delay}] }
   async generateVotes(targetPlayers) {
     const gs = this.gameState;
-    const { aiApiKey, aiModel } = gs.settings;
+    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
 
     if (!aiApiKey || targetPlayers.length === 0) {
       return this._fallbackVotes(targetPlayers);
@@ -528,6 +533,7 @@ class BatchConversationAI {
       const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
         maxTokens: 1500,
+        reasoningEffort,
       });
       return this._parseVoteResponse(responseText, targetPlayers);
     } catch (e) {
