@@ -3,8 +3,13 @@
 
 // --- 共通APIコール ---
 
-async function callAI(systemPrompt, userPrompt, apiKey, model) {
+async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
+  const { jsonMode = false, maxTokens = 400 } = options;
+
   if (model.startsWith('gemini-')) {
+    const generationConfig = { maxOutputTokens: maxTokens, temperature: 0.8 };
+    if (jsonMode) generationConfig.responseMimeType = 'application/json';
+
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
       {
@@ -17,7 +22,7 @@ async function callAI(systemPrompt, userPrompt, apiKey, model) {
               parts: [{ text: `System:\n${systemPrompt}\n\nUser:\n${userPrompt}` }],
             },
           ],
-          generationConfig: { maxOutputTokens: 400, temperature: 0.8 },
+          generationConfig,
         }),
       }
     );
@@ -31,21 +36,24 @@ async function callAI(systemPrompt, userPrompt, apiKey, model) {
     return data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('\n').trim() || '';
   }
 
+  const openAiBody = {
+    model: model || 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    max_tokens: maxTokens,
+    temperature: 0.8,
+  };
+  if (jsonMode) openAiBody.response_format = { type: 'json_object' };
+
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: model || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 400,
-      temperature: 0.8,
-    }),
+    body: JSON.stringify(openAiBody),
   });
 
   if (!res.ok) {
@@ -335,5 +343,190 @@ ${recentPosts || '（発言なし）'}
       [GAME_PHASES.NIGHT]: '夜',
     };
     return labels[this.gameState.phase] || '';
+  }
+}
+
+// --- バッチ会話生成AI ---
+// 複数AIプレイヤーの発言と状況整理を一度のAPIコールで生成します
+
+class BatchConversationAI {
+  constructor(gameState) {
+    this.gameState = gameState;
+  }
+
+  // targetPlayers: 発言を生成するAIプレイヤーの配列
+  // 戻り値: { posts: [{name, thinking, talk}], summary: {chat, prediction} | null }
+  async generate(targetPlayers) {
+    const gs = this.gameState;
+    const { aiApiKey, aiModel } = gs.settings;
+
+    if (!aiApiKey || targetPlayers.length === 0) {
+      return this._fallback(targetPlayers);
+    }
+
+    const systemPrompt = '人狼ゲームの進行AIです。登場人物たちの会話を、指定されたJSON形式で生成してください。';
+    const userPrompt = this._buildPrompt(targetPlayers);
+
+    try {
+      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, {
+        jsonMode: true,
+        maxTokens: 1500,
+      });
+      return this._parseResponse(responseText, targetPlayers);
+    } catch (e) {
+      console.warn('バッチ会話生成エラー:', e);
+      return this._fallback(targetPlayers);
+    }
+  }
+
+  _buildPrompt(targetPlayers) {
+    const gs = this.gameState;
+    const roomLevel = gs.settings.roomLevel || 'intermediate';
+    const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
+    const lines = [];
+
+    lines.push('人狼ゲームのチャット履歴を見て会話の続きを生成してください。');
+    lines.push('');
+
+    if (roomLevelPrompt) {
+      lines.push('# 備考');
+      lines.push(roomLevelPrompt);
+      lines.push('');
+    }
+
+    // 登場人物セクション
+    lines.push('# 登場人物');
+    gs.getAlivePlayers().forEach((player) => {
+      if (player.isHuman) return;
+      lines.push(`## ${player.name}`);
+      lines.push(`役職：${player.role?.name || '村人'}`);
+      if (player.personality) lines.push(`性格・スタイル：${player.personality}`);
+    });
+    lines.push('');
+
+    // チャット履歴
+    lines.push('# チャット履歴');
+    const publicPosts = gs.bbsLog
+      .filter((p) => p.type !== 'wolf_chat' && p.type !== 'whisper')
+      .slice(-50);
+    publicPosts.forEach((post) => {
+      lines.push(post.type === 'system'
+        ? this._formatSystemEntry(post)
+        : this._formatPostEntry(post));
+    });
+    lines.push('');
+
+    // 人狼チャット履歴（人狼プレイヤーがいる場合のみ含める）
+    const wolfPosts = gs.bbsLog.filter((p) => p.type === 'wolf_chat' || p.type === 'whisper');
+    if (wolfPosts.length > 0) {
+      lines.push('# 人狼チャット履歴');
+      wolfPosts.forEach((post) => lines.push(this._formatPostEntry(post)));
+      lines.push('');
+    }
+
+    // 前回の状況整理
+    if (gs.logicAiOutput) {
+      lines.push('# 前回の状況整理');
+      lines.push(gs.logicAiOutput);
+      lines.push('');
+    }
+
+    // 生成対象プレイヤー
+    const targetNames = targetPlayers.map((p) => p.name).join('、');
+    lines.push('# 生成対象プレイヤー');
+    lines.push(`以下のプレイヤーたちの発言を生成してください：${targetNames}`);
+    lines.push('目安として各プレイヤーが1〜2回発言するようにし、全員が最低1回は発言してください。');
+    lines.push('');
+
+    // 出力形式
+    lines.push('# 出力形式');
+    lines.push('以下のJSON形式で出力してください：');
+    lines.push(JSON.stringify({
+      posts: [{ name: 'プレイヤー名', thinking: '内部思考（省略可）', talk: '発言内容' }],
+      summary: { chat: '現在の会話状況のまとめ', prediction: '各プレイヤーの役職予想' },
+    }, null, 2));
+
+    return lines.join('\n');
+  }
+
+  _formatSystemEntry(post) {
+    return [
+      '"system" : {',
+      `    "message" : "${this._escapeForJson(post.content)}",`,
+      `    "date" : "${post.timestamp}"`,
+      '}',
+    ].join('\n');
+  }
+
+  _formatPostEntry(post) {
+    return [
+      '"post" : {',
+      `    "name" : "${this._escapeForJson(post.playerName)}",`,
+      `    "talk" : "${this._escapeForJson(post.content)}",`,
+      `    "date" : "${post.timestamp}"`,
+      '}',
+    ].join('\n');
+  }
+
+  _parseResponse(responseText, targetPlayers) {
+    try {
+      // コードブロックがあれば中身を取り出す
+      const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const jsonStr = codeBlockMatch ? codeBlockMatch[1].trim() : responseText.trim();
+
+      // 最外のJSONオブジェクトを切り出す
+      const start = jsonStr.indexOf('{');
+      const end = jsonStr.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('JSONオブジェクトが見つかりません');
+
+      const data = JSON.parse(jsonStr.slice(start, end + 1));
+      if (!Array.isArray(data.posts)) throw new Error('postsが配列ではありません');
+
+      const validNames = new Set(targetPlayers.map((p) => p.name));
+      const validPosts = data.posts.filter(
+        (post) =>
+          post &&
+          typeof post.name === 'string' &&
+          validNames.has(post.name) &&
+          typeof post.talk === 'string' &&
+          post.talk.trim()
+      );
+
+      if (validPosts.length === 0) throw new Error('有効な投稿がありません');
+
+      return {
+        posts: validPosts,
+        summary: data.summary && typeof data.summary === 'object' ? data.summary : null,
+      };
+    } catch (e) {
+      console.warn('バッチ会話JSONパースエラー:', e, responseText);
+      return this._fallback(targetPlayers);
+    }
+  }
+
+  _fallback(targetPlayers) {
+    const speeches = [
+      'う〜ん、誰が怪しいかな…',
+      'みんな落ち着いて議論しましょう。',
+      '私はまだ判断できていません。情報を集めましょう。',
+      '昨日の行動を振り返ってみるべきでは？',
+      '誰か怪しい人の名前を挙げてみてください。',
+    ];
+    return {
+      posts: targetPlayers.map((player) => ({
+        name: player.name,
+        thinking: null,
+        talk: speeches[Math.floor(Math.random() * speeches.length)],
+      })),
+      summary: null,
+    };
+  }
+
+  _escapeForJson(str) {
+    return String(str || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r');
   }
 }
