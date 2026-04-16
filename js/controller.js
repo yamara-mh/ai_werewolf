@@ -872,6 +872,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const majority = Math.floor(alive.length / 2) + 1;
 
     if (voterCount === majority - 1 && majority > 1) {
+      // 「あと一人投票すると投票フェーズ移行」の警告（majority - 1 = 遷移まであと1票の状態）
       const recentSystem = gs.bbsLog.slice(-5).find(
         (p) => p.type === 'system' && p.content?.includes('あと一人が投票先を設定')
       );
@@ -950,9 +951,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const { player } = postData;
 
-    // CO 適用
+    // CO 適用（有効な役職IDの場合のみ）
+    const validRoleIds = new Set(Object.values(ROLES).map((r) => r.id));
     if (postData.coRole && !player.coRole) {
-      player.coRole = postData.coRole;
+      if (validRoleIds.has(postData.coRole)) {
+        player.coRole = postData.coRole;
+      } else {
+        console.warn(`revealNextPost: 無効な coRole "${postData.coRole}" (${player.name})`);
+      }
     }
 
     // 投票先変更適用
