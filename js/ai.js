@@ -1,73 +1,5 @@
 // AI プレイヤーロジック
-// OpenAI API (または互換API) を使用してAIプレイヤーの発言・行動を生成します
-
-// --- 共通APIコール ---
-
-async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
-  const { jsonMode = false, maxTokens = 400, reasoningEffort = 'medium' } = options;
-  const validReasoningEffort = ['low', 'medium', 'high'].includes(reasoningEffort)
-    ? reasoningEffort
-    : 'medium';
-
-  if (model.startsWith('gemini-')) {
-    const generationConfig = { maxOutputTokens: maxTokens, temperature: 0.8 };
-    if (jsonMode) generationConfig.responseMimeType = 'application/json';
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: `System:\n${systemPrompt}\n\nUser:\n${userPrompt}` }],
-            },
-          ],
-          generationConfig,
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(`Gemini API Error ${res.status}: ${err.error?.message || res.statusText}`);
-    }
-
-    const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('\n').trim() || '';
-  }
-
-  const openAiBody = {
-    model: model || 'gpt-5.4-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    max_tokens: maxTokens,
-    temperature: 0.8,
-    reasoning_effort: validReasoningEffort,
-  };
-  if (jsonMode) openAiBody.response_format = { type: 'json_object' };
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(openAiBody),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`API Error ${res.status}: ${err.error?.message || res.statusText}`);
-  }
-
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() || '';
-}
+// callAI は api.js、プロンプト構築は prompts.js で定義されています
 
 // --- ロジックAI ---
 
@@ -83,26 +15,24 @@ class LogicAI {
     if (!aiApiKey) return this._fallbackAnalysis();
 
     const model = logicAiModel || 'gemini-flash-latest';
-    const systemPrompt = 'あなたは人狼ゲームを観察するロジックAIです。村人の視点でチャットを分析し、確定情報・役職予想・人狼ライン候補・推奨行動を簡潔に整理してください。日本語で出力してください。';
-    const userPrompt = this._buildAnalysisPrompt();
+    const userPrompt = this._buildUserPrompt();
 
     try {
-      return await callAI(systemPrompt, userPrompt, aiApiKey, model, { reasoningEffort });
+      return await callAI(LOGIC_AI_SYSTEM_PROMPT, userPrompt, aiApiKey, model, { reasoningEffort });
     } catch (e) {
       console.warn('ロジックAI分析エラー:', e);
       return this._fallbackAnalysis();
     }
   }
 
-  _buildAnalysisPrompt() {
+  _buildUserPrompt() {
     const gs = this.gameState;
-    const alivePlayers = gs.getAlivePlayers().map((p) => p.name).join('、');
-    const deadPlayers = gs.players
+    const alivePlayersText = gs.getAlivePlayers().map((p) => p.name).join('、');
+    const deadPlayersText = gs.players
       .filter((p) => !p.isAlive)
       .map((p) => p.name)
       .join('、');
-
-    const recentPosts = gs.bbsLog
+    const recentPostsText = gs.bbsLog
       .filter((p) => p.type !== 'system')
       .slice(-30)
       .map((p) => {
@@ -110,19 +40,7 @@ class LogicAI {
         return `${p.playerName}${coLabel}: ${p.content}`;
       })
       .join('\n');
-
-    return `現在: ${gs.day}日目
-生存プレイヤー: ${alivePlayers}
-${deadPlayers ? `死亡・処刑: ${deadPlayers}` : ''}
-
-以下の形式で分析してください：
-【確定情報】役職COした人物・死亡者など
-【役職予想】各プレイヤーの役職予想と根拠
-【人狼ライン候補】人狼の可能性が高いプレイヤーと理由
-【推奨行動】村人陣営として取るべき行動
-
-チャットログ（最近の発言）:
-${recentPosts || '（発言なし）'}`;
+    return buildLogicAiUserPrompt(gs.day, alivePlayersText, deadPlayersText, recentPostsText);
   }
 
   _fallbackAnalysis() {
@@ -207,77 +125,58 @@ class AIPlayer {
     }
   }
 
-  // --- プロンプト構築 ---
+  // --- プロンプト構築（データ収集） ---
 
   _buildSystemPrompt(aiPlayer) {
     const gs = this.gameState;
     const role = aiPlayer.role;
-    const teammates = isActualWolf(role)
+    const isWolf = isActualWolf(role);
+    const teammates = isWolf
       ? gs.players
           .filter((p) => isActualWolf(p.role) && p.id !== aiPlayer.id)
           .map((p) => p.name)
           .join('、')
       : '';
-
     const roomLevel = gs.settings.roomLevel || 'intermediate';
     const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
-
-    const logicAiSection = gs.logicAiOutput
-      ? `\nあなたの思考（ロジック分析）:\n${gs.logicAiOutput}`
-      : '';
-
-    return `あなたは人狼ゲームのAIプレイヤーです。
-名前: ${aiPlayer.name}
-性格・スタイル: ${aiPlayer.personality}
-役職: ${role?.name || '不明'}（${role?.description || ''}）
-チーム: ${isActualWolf(role) ? '人狼陣営' : '村人陣営'}
-${isActualWolf(role) && teammates ? `仲間の人狼: ${teammates}\n` : ''}${roomLevelPrompt ? `${roomLevelPrompt}\n` : ''}ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く（1〜3文）発言してください。
-役職は絶対に明かさないでください（占い師が公開する場合を除く）。
-ゲームを楽しく盛り上げるよう心がけてください。${logicAiSection}`;
+    return buildAiPlayerSystemPrompt(
+      aiPlayer.name,
+      aiPlayer.personality,
+      role,
+      isWolf,
+      teammates,
+      roomLevelPrompt,
+      gs.logicAiOutput,
+    );
   }
 
   _buildSpeechPrompt(aiPlayer) {
     const gs = this.gameState;
-    const recentPosts = gs.bbsLog.slice(-30).map(
-      (p) => `${p.playerName}: ${p.content}`
-    ).join('\n');
-
-    return `現在: ${gs.day}日目 ${this._phaseLabel()}
-生存プレイヤー: ${gs.getAlivePlayers().map((p) => p.name).join('、')}
-
-最近の掲示板の発言:
-${recentPosts || '（まだ発言はありません）'}
-
-あなた（${aiPlayer.name}）の発言を1〜3文で生成してください。発言のみを出力してください。`;
+    const alivePlayersText = gs.getAlivePlayers().map((p) => p.name).join('、');
+    const recentPostsText = gs.bbsLog.slice(-30)
+      .map((p) => `${p.playerName}: ${p.content}`)
+      .join('\n');
+    return buildAiPlayerSpeechUserPrompt(
+      aiPlayer.name,
+      gs.day,
+      this._phaseLabel(),
+      alivePlayersText,
+      recentPostsText,
+    );
   }
 
   _buildVotePrompt(aiPlayer, candidates) {
     const gs = this.gameState;
-    const recentPosts = gs.bbsLog.slice(-30).map(
-      (p) => `${p.playerName}: ${p.content}`
-    ).join('\n');
-
-    return `現在: ${gs.day}日目 投票フェーズ
-投票可能なプレイヤー: ${candidates.map((p) => p.name).join('、')}
-
-最近の発言:
-${recentPosts || '（発言なし）'}
-
-誰に投票しますか？候補者の名前を一人だけ答えてください。`;
+    const candidatesText = candidates.map((p) => p.name).join('、');
+    const recentPostsText = gs.bbsLog.slice(-30)
+      .map((p) => `${p.playerName}: ${p.content}`)
+      .join('\n');
+    return buildAiPlayerVoteUserPrompt(gs.day, candidatesText, recentPostsText);
   }
 
   _buildNightActionPrompt(aiPlayer, candidates) {
-    const role = aiPlayer.role;
-    let actionDesc = '';
-    if (isWerewolfRole(role)) actionDesc = '今夜襲撃する村人を選んでください。';
-    else if (role?.id === ROLES.SEER.id) actionDesc = '今夜占うプレイヤーを選んでください。';
-    else if (role?.id === ROLES.HUNTER.id) actionDesc = '今夜護衛するプレイヤーを選んでください。';
-    else actionDesc = '夜のアクション対象を選んでください。';
-
-    return `夜フェーズです。${actionDesc}
-対象プレイヤー: ${candidates.map((p) => p.name).join('、')}
-
-対象の名前を一人だけ答えてください。`;
+    const candidatesText = candidates.map((p) => p.name).join('、');
+    return buildAiPlayerNightActionUserPrompt(aiPlayer.role, candidatesText);
   }
 
   // --- フォールバック（APIなし時） ---
@@ -368,11 +267,10 @@ class BatchConversationAI {
       return this._fallback(targetPlayers);
     }
 
-    const systemPrompt = '人狼ゲームの進行AIです。登場人物たちの会話を、指定されたJSON形式で生成してください。';
     const userPrompt = this._buildPrompt(targetPlayers);
 
     try {
-      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, {
+      const responseText = await callAI(BATCH_CONVERSATION_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
         maxTokens: 1500,
         reasoningEffort,
@@ -384,95 +282,28 @@ class BatchConversationAI {
     }
   }
 
+  // --- プロンプト構築（データ収集） ---
+
   _buildPrompt(targetPlayers) {
     const gs = this.gameState;
     const roomLevel = gs.settings.roomLevel || 'intermediate';
     const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
-    const lines = [];
-
-    lines.push('人狼ゲームのチャット履歴を見て会話の続きを生成してください。');
-    lines.push('');
-
-    if (roomLevelPrompt) {
-      lines.push('# 備考');
-      lines.push(roomLevelPrompt);
-      lines.push('');
-    }
-
-    // 登場人物セクション
-    lines.push('# 登場人物');
-    gs.getAlivePlayers().forEach((player) => {
-      if (player.isHuman) return;
-      lines.push(`## ${player.name}`);
-      lines.push(`役職：${player.role?.name || '村人'}`);
-      if (player.personality) lines.push(`性格・スタイル：${player.personality}`);
-    });
-    lines.push('');
-
-    // チャット履歴
-    lines.push('# チャット履歴');
+    const alivePlayers = gs.getAlivePlayers()
+      .filter((p) => !p.isHuman)
+      .map((p) => ({ name: p.name, role: p.role, personality: p.personality }));
     const publicPosts = gs.bbsLog
       .filter((p) => p.type !== 'wolf_chat' && p.type !== 'whisper')
       .slice(-50);
-    publicPosts.forEach((post) => {
-      lines.push(post.type === 'system'
-        ? this._formatSystemEntry(post)
-        : this._formatPostEntry(post));
-    });
-    lines.push('');
-
-    // 人狼チャット履歴（人狼プレイヤーがいる場合のみ含める）
     const wolfPosts = gs.bbsLog.filter((p) => p.type === 'wolf_chat' || p.type === 'whisper');
-    if (wolfPosts.length > 0) {
-      lines.push('# 人狼チャット履歴');
-      wolfPosts.forEach((post) => lines.push(this._formatPostEntry(post)));
-      lines.push('');
-    }
-
-    // 前回の状況整理
-    if (gs.logicAiOutput) {
-      lines.push('# 前回の状況整理');
-      lines.push(gs.logicAiOutput);
-      lines.push('');
-    }
-
-    // 生成対象プレイヤー
     const targetNames = targetPlayers.map((p) => p.name).join('、');
-    lines.push('# 生成対象プレイヤー');
-    lines.push(`以下のプレイヤーたちの発言を生成してください：${targetNames}`);
-    lines.push('目安として各プレイヤーが1〜2回発言するようにし、全員が最低1回は発言してください。');
-    lines.push('');
-
-    // 出力形式
-    lines.push('# 出力形式');
-    lines.push('以下のJSON形式で出力してください：');
-    lines.push(JSON.stringify({
-      posts: [{ name: 'プレイヤー名', thinking: '内部思考（省略可）', talk: '発言内容', delay: 1.5 }],
-      summary: { chat: '現在の会話状況のまとめ', prediction: '各プレイヤーの役職予想' },
-    }, null, 2));
-    lines.push('delay はこの投稿を表示するまでの秒数（0.5〜4.0）です。会話の間合いや盛り上がりに合わせてAIが適宜決めてください。');
-    lines.push('posts の順番・件数（各プレイヤーの発言回数を含む）もAIが自由に決めてください。');
-
-    return lines.join('\n');
-  }
-
-  _formatSystemEntry(post) {
-    return [
-      '"system" : {',
-      `    "message" : "${this._escapeForJson(post.content)}",`,
-      `    "date" : "${post.timestamp}"`,
-      '}',
-    ].join('\n');
-  }
-
-  _formatPostEntry(post) {
-    return [
-      '"post" : {',
-      `    "name" : "${this._escapeForJson(post.playerName)}",`,
-      `    "talk" : "${this._escapeForJson(post.content)}",`,
-      `    "date" : "${post.timestamp}"`,
-      '}',
-    ].join('\n');
+    return buildBatchConversationUserPrompt({
+      roomLevelPrompt,
+      alivePlayers,
+      publicPosts,
+      wolfPosts,
+      logicAiOutput: gs.logicAiOutput,
+      targetNames,
+    });
   }
 
   _parseResponse(responseText, targetPlayers) {
@@ -634,11 +465,10 @@ class BatchConversationAI {
       return this._fallbackVotes(targetPlayers);
     }
 
-    const systemPrompt = '人狼ゲームの進行AIです。投票フェーズにおける各キャラクターの投票先と発言を、指定されたJSON形式で生成してください。';
     const userPrompt = this._buildVotePrompt(targetPlayers);
 
     try {
-      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, {
+      const responseText = await callAI(BATCH_VOTE_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
         maxTokens: 1500,
         reasoningEffort,
@@ -654,63 +484,18 @@ class BatchConversationAI {
     const gs = this.gameState;
     const roomLevel = gs.settings.roomLevel || 'intermediate';
     const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
-    const lines = [];
-
-    lines.push('投票フェーズです。各キャラクターが誰に投票するかを決め、投票宣言の発言を生成してください。');
-    lines.push('');
-
-    if (roomLevelPrompt) {
-      lines.push('# 備考');
-      lines.push(roomLevelPrompt);
-      lines.push('');
-    }
-
-    // 登場人物セクション
-    lines.push('# 登場人物（投票権あり）');
-    targetPlayers.forEach((player) => {
-      lines.push(`## ${player.name}`);
-      lines.push(`役職：${player.role?.name || '村人'}`);
-      if (player.personality) lines.push(`性格・スタイル：${player.personality}`);
-    });
-    lines.push('');
-
-    // 投票候補
-    const candidateNames = gs.getAlivePlayers().map((p) => p.name).join('、');
-    lines.push('# 投票候補（生存プレイヤー）');
-    lines.push(candidateNames);
-    lines.push('');
-
-    // チャット履歴
-    lines.push('# チャット履歴（議論の流れ）');
     const publicPosts = gs.bbsLog
       .filter((p) => p.type !== 'wolf_chat' && p.type !== 'whisper')
       .slice(-50);
-    publicPosts.forEach((post) => {
-      lines.push(post.type === 'system'
-        ? this._formatSystemEntry(post)
-        : this._formatPostEntry(post));
+    const candidateNames = gs.getAlivePlayers().map((p) => p.name).join('、');
+    const targetPlayersData = targetPlayers.map((p) => ({ name: p.name, role: p.role, personality: p.personality }));
+    return buildBatchVoteUserPrompt({
+      roomLevelPrompt,
+      targetPlayers: targetPlayersData,
+      candidateNames,
+      publicPosts,
+      logicAiOutput: gs.logicAiOutput,
     });
-    lines.push('');
-
-    // 前回の状況整理
-    if (gs.logicAiOutput) {
-      lines.push('# 前回の状況整理');
-      lines.push(gs.logicAiOutput);
-      lines.push('');
-    }
-
-    // 出力形式
-    lines.push('# 出力形式');
-    lines.push('以下のJSON形式で出力してください：');
-    lines.push(JSON.stringify({
-      votes: [{ name: 'プレイヤー名', thinking: '投票理由（内部思考）', vote: '投票先プレイヤー名', talk: '投票宣言の発言', delay: 1.5 }],
-    }, null, 2));
-    lines.push('vote は投票候補の中から必ず一人を選んでください（自分自身は不可）。');
-    lines.push('talk は「○○に投票します」のような投票宣言の発言です。');
-    lines.push('delay はこの投稿を表示するまでの秒数（0.5〜3.0）です。間合いを自然に決めてください。');
-    lines.push('全員が必ず一票を投じてください。');
-
-    return lines.join('\n');
   }
 
   _parseVoteResponse(responseText, targetPlayers) {
@@ -810,11 +595,10 @@ class BatchConversationAI {
       return this._fallbackAdventure(aiPlayers, targetCount);
     }
 
-    const systemPrompt = '人狼ゲームの進行AIです。登場人物たちの会話を、指定されたJSON形式で生成してください。';
     const userPrompt = this._buildAdventurePrompt(aiPlayers, targetCount);
 
     try {
-      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, {
+      const responseText = await callAI(BATCH_CONVERSATION_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
         maxTokens: 3000,
         reasoningEffort,
@@ -830,83 +614,38 @@ class BatchConversationAI {
     const gs = this.gameState;
     const roomLevel = gs.settings.roomLevel || 'intermediate';
     const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
-    const lines = [];
-
-    lines.push('人狼ゲームの続きの会話を生成してください。');
-    lines.push('');
-
-    if (roomLevelPrompt) {
-      lines.push('# 備考');
-      lines.push(roomLevelPrompt);
-      lines.push('');
-    }
-
-    lines.push('# 登場人物');
-    gs.getAlivePlayers().forEach((player) => {
-      if (player.isHuman) return;
-      lines.push(`## ${player.name}`);
-      lines.push(`役職：${player.role?.name || '村人'}`);
-      if (player.personality) lines.push(`性格・スタイル：${player.personality}`);
-      const voteTargetId = gs.votes[player.id];
-      if (voteTargetId) {
-        const target = gs.getPlayer(voteTargetId);
-        if (target) lines.push(`現在の投票先：${target.name}`);
-      }
-    });
-    lines.push('');
-
-    lines.push('# チャット履歴');
+    const aiPlayersWithVotes = gs.getAlivePlayers()
+      .filter((p) => !p.isHuman)
+      .map((p) => {
+        const voteTargetId = gs.votes[p.id];
+        const voteTarget = voteTargetId ? gs.getPlayer(voteTargetId) : null;
+        return {
+          name: p.name,
+          role: p.role,
+          personality: p.personality,
+          currentVote: voteTarget ? voteTarget.name : null,
+        };
+      });
     const publicPosts = gs.bbsLog
       .filter((p) => p.type !== 'wolf_chat' && p.type !== 'whisper')
       .slice(-50);
-    publicPosts.forEach((post) => {
-      lines.push(post.type === 'system'
-        ? this._formatSystemEntry(post)
-        : this._formatPostEntry(post));
-    });
-    lines.push('');
-
     const wolfPosts = gs.bbsLog.filter((p) => p.type === 'wolf_chat' || p.type === 'whisper');
-    if (wolfPosts.length > 0) {
-      lines.push('# 人狼チャット履歴');
-      wolfPosts.forEach((post) => lines.push(this._formatPostEntry(post)));
-      lines.push('');
-    }
-
-    if (gs.logicAiOutput) {
-      lines.push('# 前回の状況整理');
-      lines.push(gs.logicAiOutput);
-      lines.push('');
-    }
-
-    const aliveWithVotes = gs.getAlivePlayers().filter((p) => gs.votes[p.id]);
-    if (aliveWithVotes.length > 0) {
-      lines.push('# 現在の投票状況');
-      aliveWithVotes.forEach((p) => {
+    const currentVotes = gs.getAlivePlayers()
+      .filter((p) => gs.votes[p.id])
+      .map((p) => {
         const target = gs.getPlayer(gs.votes[p.id]);
-        if (target) lines.push(`${p.name} → ${target.name}`);
-      });
-      lines.push('');
-    }
-
-    lines.push('# 指示');
-    lines.push(`上記の会話の続きを約${targetCount}発言生成してください。`);
-    lines.push('登場人物たちは自然に会話を続けます。');
-    lines.push('各キャラクターは任意のタイミングで投票先を決定・変更できます（vote フィールドを使用）。');
-    lines.push('各キャラクターは任意のタイミングで役職をCOできます（coRole フィールドを使用）。');
-    lines.push('');
-
-    lines.push('# 出力形式');
-    lines.push('以下のJSON形式で出力してください：');
-    lines.push(JSON.stringify({
-      posts: [{ name: 'プレイヤー名', talk: '発言内容', coRole: '役職ID（省略可）', vote: '投票先プレイヤー名（省略可）' }],
-      summary: { chat: '現在の会話状況のまとめ', prediction: '各プレイヤーの役職予想' },
-    }, null, 2));
-    lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
-    lines.push(`vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）`);
-    lines.push(`約${targetCount}発言になるよう生成してください。`);
-
-    return lines.join('\n');
+        return target ? { voterName: p.name, targetName: target.name } : null;
+      })
+      .filter(Boolean);
+    return buildAdventureUserPrompt({
+      roomLevelPrompt,
+      aiPlayersWithVotes,
+      publicPosts,
+      wolfPosts,
+      logicAiOutput: gs.logicAiOutput,
+      currentVotes,
+      targetCount,
+    });
   }
 
   _parseAdventureResponse(responseText, aiPlayers) {
@@ -962,13 +701,5 @@ class BatchConversationAI {
       })),
       summary: null,
     };
-  }
-
-  _escapeForJson(str) {
-    return String(str || '')
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, '\\n')
-      .replace(/\r/g, '\\r');
   }
 }
