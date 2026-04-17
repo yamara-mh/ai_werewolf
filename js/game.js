@@ -23,6 +23,8 @@ class GameState {
       showLogicAi: true,
     };
     this.logicAiOutput = '';
+    // 前日までのあらすじ（夜ターンに更新）
+    this.previousDaysSynopsis = '';
   }
 
   // ゲームの初期化
@@ -64,7 +66,9 @@ class GameState {
         role: null,
         isAlive: true,
         isHuman: false,
-        personality: p.style,
+        personality: p.character || p.style || '',
+        firstPersonPronouns: p.firstPersonPronouns || '',
+        speakingStyle: p.speakingStyle || '',
         coRole: null,
         deathReason: null,
       });
@@ -304,6 +308,13 @@ class GameState {
       console.warn('ゲーム状態の読み込みに失敗しました', e);
       return null;
     }
+  }
+
+  // 今日の公開投稿一覧（人狼チャット・ウィスパーを除く）
+  getTodayPosts() {
+    return this.bbsLog.filter(
+      (p) => p.day === this.day && p.type !== 'wolf_chat' && p.type !== 'whisper'
+    );
   }
 
   // ローカルストレージをクリア
