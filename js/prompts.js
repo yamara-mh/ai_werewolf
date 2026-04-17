@@ -248,11 +248,10 @@ function buildBatchVoteUserPrompt({ roomLevelPrompt, targetPlayers, candidateNam
   lines.push('# 出力形式');
   lines.push('以下のJSON形式で出力してください：');
   lines.push(JSON.stringify({
-    votes: [{ name: 'プレイヤー名', thinking: '投票理由（内部思考）', vote: '投票先プレイヤー名', talk: '投票宣言の発言', delay: 1.5 }],
+    votes: [{ name: 'プレイヤー名', thinking: '投票理由（内部思考）', vote: '投票先プレイヤー名', talk: '投票宣言の発言' }],
   }, null, 2));
   lines.push('vote は投票候補の中から必ず一人を選んでください（自分自身は不可）。');
   lines.push('talk は「○○に投票します」のような投票宣言の発言です。');
-  lines.push('delay はこの投稿を表示するまでの秒数（0.5〜3.0）です。間合いを自然に決めてください。');
   lines.push('全員が必ず一票を投じてください。');
 
   return lines.join('\n');
@@ -302,14 +301,19 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
     lines.push('');
   }
 
-  lines.push('# 全プレイヤーの名前、役職、性格');
-  allPlayers.forEach(({ name, role, personality, firstPersonPronouns, speakingStyle, currentVote }) => {
+  lines.push('# 登場人物の名前、役職、性格');
+  allPlayers.forEach(({ name, role, isHuman, personality, firstPersonPronouns, speakingStyle, currentVote }) => {
     lines.push(`## ${name}`);
-    lines.push(`役職：${role?.name || '村人'}`);
-    if (personality) lines.push(`性格：${personality}`);
-    if (firstPersonPronouns) lines.push(`一人称：${firstPersonPronouns}`);
-    if (speakingStyle) lines.push(`話し方：${speakingStyle}`);
-    if (currentVote) lines.push(`現在の投票先：${currentVote}`);
+    if (isHuman) {
+      lines.push('役職：村人');
+      lines.push('この人物のセリフは私が担当します。絶対に発言を生成しないでください。');
+    } else {
+      lines.push(`役職：${role?.name || '村人'}`);
+      if (personality) lines.push(`性格：${personality}`);
+      if (firstPersonPronouns) lines.push(`一人称：${firstPersonPronouns}`);
+      if (speakingStyle) lines.push(`話し方：${speakingStyle}`);
+      if (currentVote) lines.push(`現在の投票先：${currentVote}`);
+    }
   });
   lines.push('');
 
@@ -357,10 +361,9 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   lines.push('# 出力形式');
   lines.push('以下のJSON形式で出力してください：');
   lines.push(JSON.stringify({
-    posts: [{ name: 'プレイヤー名', talk: '発言内容（省略可）', coRole: '役職ID（省略可）', target: '投票先プレイヤー名（省略可）', delay: 1.5 }],
+    posts: [{ name: 'プレイヤー名', talk: '発言内容（省略可）', coRole: '役職ID（省略可）', target: '投票先プレイヤー名（省略可）' }],
     summary: { chat: '現在の会話状況のまとめ', prediction: '各プレイヤーの役職予想' },
   }, null, 2));
-  lines.push('delay はこの投稿を表示するまでの秒数（0.5〜4.0）です。会話の間合いや盛り上がりに合わせてAIが適宜決めてください。');
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
   lines.push('target は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
 

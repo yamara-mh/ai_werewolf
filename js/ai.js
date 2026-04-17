@@ -244,6 +244,7 @@ class BatchConversationAI {
     const allPlayers = gs.getAlivePlayers().map((p) => ({
       name: p.name,
       role: p.role,
+      isHuman: p.isHuman || false,
       personality: p.personality || '',
       firstPersonPronouns: p.firstPersonPronouns || '',
       speakingStyle: p.speakingStyle || '',
@@ -282,7 +283,6 @@ class BatchConversationAI {
         name: post.name,
         thinking: post.thinking || null,
         talk: post.talk,
-        delay: (typeof post.delay === 'number' && post.delay > 0) ? post.delay : null,
       }));
 
       if (validPosts.length === 0) throw new Error('有効な投稿がありません');
@@ -372,6 +372,28 @@ class BatchConversationAI {
         // ignore
       }
     }
+
+    // 先頭または末尾の中括弧が欠落しているケースへの対応
+    const trimmed = text.trim();
+    if (trimmed) {
+      // 先頭の { がない場合、{ ... } で包んでみる
+      if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+        try { return parseMaybeNestedJson(`{${trimmed}}`); } catch (_) { /* ignore */ }
+      }
+      // 末尾の } がない場合（先頭の { はある）
+      if (trimmed.startsWith('{') && !trimmed.endsWith('}')) {
+        try { return parseMaybeNestedJson(`${trimmed}}`); } catch (_) { /* ignore */ }
+      }
+      // 先頭の [ がない場合
+      if (!trimmed.startsWith('[') && !trimmed.startsWith('{')) {
+        try { return parseMaybeNestedJson(`[${trimmed}]`); } catch (_) { /* ignore */ }
+      }
+      // 末尾の ] がない場合（先頭の [ はある）
+      if (trimmed.startsWith('[') && !trimmed.endsWith(']')) {
+        try { return parseMaybeNestedJson(`${trimmed}]`); } catch (_) { /* ignore */ }
+      }
+    }
+
     return null;
   }
 
@@ -458,11 +480,22 @@ class BatchConversationAI {
   _parseVoteResponse(responseText, targetPlayers) {
     try {
       const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-      const jsonStr = codeBlockMatch ? codeBlockMatch[1].trim() : responseText.trim();
+      let jsonStr = codeBlockMatch ? codeBlockMatch[1].trim() : responseText.trim();
 
-      const start = jsonStr.indexOf('{');
-      const end = jsonStr.lastIndexOf('}');
-      if (start === -1 || end === -1) throw new Error('JSONオブジェクトが見つかりません');
+      let start = jsonStr.indexOf('{');
+      let end = jsonStr.lastIndexOf('}');
+      // 先頭または末尾の中括弧が欠落しているケースへの対応
+      if (start === -1 && end === -1) {
+        jsonStr = `{${jsonStr}}`;
+        start = 0;
+        end = jsonStr.length - 1;
+      } else if (start === -1) {
+        jsonStr = `{${jsonStr}`;
+        start = 0;
+      } else if (end === -1) {
+        jsonStr = `${jsonStr}}`;
+        end = jsonStr.length - 1;
+      }
 
       const data = JSON.parse(jsonStr.slice(start, end + 1));
       if (!Array.isArray(data.votes)) throw new Error('votesが配列ではありません');
@@ -486,7 +519,6 @@ class BatchConversationAI {
         thinking: v.thinking || null,
         vote: v.vote,
         talk: v.talk,
-        delay: (typeof v.delay === 'number' && v.delay > 0) ? v.delay : null,
       }));
 
       if (validVotes.length === 0) throw new Error('有効な投票データがありません');
@@ -504,7 +536,7 @@ class BatchConversationAI {
       votes: targetPlayers.map((player) => {
         const candidates = gs.getAlivePlayers().filter((p) => p.id !== player.id);
         if (candidates.length === 0) {
-          return { name: player.name, thinking: null, vote: null, talk: '棄権します。', delay: null };
+          return { name: player.name, thinking: null, vote: null, talk: '' };
         }
         let target = null;
         if (isWerewolfRole(player.role)) {
@@ -516,8 +548,7 @@ class BatchConversationAI {
           name: player.name,
           thinking: null,
           vote: target ? target.name : null,
-          talk: target ? `${target.name} に投票します。` : '棄権します。',
-          delay: null,
+          talk: target ? `${target.name} に投票します。` : '',
         };
       }),
     };
@@ -579,6 +610,7 @@ class BatchConversationAI {
       return {
         name: p.name,
         role: p.role,
+        isHuman: p.isHuman || false,
         personality: p.personality || '',
         firstPersonPronouns: p.firstPersonPronouns || '',
         speakingStyle: p.speakingStyle || '',
@@ -631,7 +663,6 @@ class BatchConversationAI {
           talk: (typeof post.talk === 'string') ? post.talk : '',
           coRole: (typeof post.coRole === 'string' && post.coRole.trim()) ? post.coRole.trim() : null,
           vote: (typeof voteValue === 'string' && aliveNames.has(voteValue) && voteValue !== post.name) ? voteValue : null,
-          delay: (typeof post.delay === 'number' && post.delay > 0) ? post.delay : null,
         };
       });
 
