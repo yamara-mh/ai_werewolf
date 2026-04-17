@@ -43,14 +43,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ロジックAI 発動閾値管理
   let lastLogicAiThreshold = 0;
 
-  // 人間が昼フェーズで1回目の発言を済ませたかフラグ
-  let dayFirstPosted = false;
   let activePlayerFilterId = null;
   let selectedVoteTargetId = null;
   let wolfChatModeEnabled = false;
   // 通常チャットと狼チャットそれぞれの入力テキストを保持
   let normalChatDraft = '';
   let wolfChatDraft = '';
+
+  // アドベンチャーモード：会話バッファ管理
+  let conversationBuffer = [];
+  let bufferGenerating = false;
+  let uiLocked = false;
+  const BUFFER_TARGET = 30;
+  const BUFFER_REFILL_AT = 5;
+  const BUFFER_REFILL_COUNT = 20;
 
   const roleById = Object.values(ROLES).reduce((map, role) => {
     map[role.id] = role;
@@ -159,10 +165,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function canHumanPostNow() {
+    if (uiLocked) return false;
     if (!humanPlayer?.isAlive) return false;
     // 夜でも人狼専用チャットなら投稿可能
     if (gs.phase === GAME_PHASES.NIGHT) return wolfChatModeEnabled && isHumanActualWolf();
     if (gs.phase === GAME_PHASES.END) return false;
+    if (gs.phase === GAME_PHASES.VOTE || gs.phase === GAME_PHASES.EXECUTION) return false;
     return true;
   }
 
@@ -283,11 +291,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       // ロジックAI発動チェック
       await triggerLogicAiIfNeeded();
 
-      // 昼フェーズで最初の発言なら次のフェーズ処理（AI後半→投票）を開始
-      // その他のフェーズでは発言は掲示板に追加されるのみで進行には影響しない
-      if (gs.phase === GAME_PHASES.DAY && !dayFirstPosted) {
-        dayFirstPosted = true;
-        await afterHumanSpeech();
+      // 昼フェーズ：バッファをクリアしてローディング付きで再生成
+      if (gs.phase === GAME_PHASES.DAY) {
+        conversationBuffer = [];
+        setLoadingState(true);
+        try {
+          await generateConversationBuffer(BUFFER_TARGET);
+        } finally {
+          setLoadingState(false);
+        }
       }
     });
   }
@@ -379,8 +391,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderChatTopActions();
 
     switch (gs.phase) {
+      case GAME_PHASES.DAY:
+        if (!bufferGenerating && conversationBuffer.length === 0) {
+          generateConversationBuffer(BUFFER_TARGET);
+        }
+        break;
       case GAME_PHASES.VOTE:
-        showVotePanel();
+        setTimeout(() => runVote(), 0);
         break;
       case GAME_PHASES.NIGHT:
         showNightPanel();
@@ -435,104 +452,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function runDay() {
     bbs.renderPhaseHeader(gs.day, gs.phase);
     updateHeader();
-    dayFirstPosted = false;
+    conversationBuffer = [];
 
-    // AIが順番に発言（前半）
-    const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
-    const firstHalf = aiPlayers.slice(0, Math.ceil(aiPlayers.length / 2));
-
-    await runBatchAISpeeches(firstHalf);
+    // 会話バッファ生成を開始（非ブロッキング）
+    generateConversationBuffer(BUFFER_TARGET);
+    renderChatTopActions();
 
     gs.save();
   }
 
-  async function afterHumanSpeech() {
-    // 残りのAIが発言
-    const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
-    const secondHalf = aiPlayers.slice(Math.ceil(aiPlayers.length / 2));
-    await runBatchAISpeeches(secondHalf);
-
-    // 投票フェーズへ
-    await sleep(500);
-    gs.nextPhase(); // DAY -> VOTE
-    gs.save();
-    await runVote();
-  }
-
-  // --- AIの発言ループ（バッチ生成）---
-  // バッチAPIコールで複数AIの発言と状況整理を一括生成し、順次表示します。
-  // APIキーがない場合やバッチ生成に失敗した場合は個別生成にフォールバックします。
-  async function runBatchAISpeeches(players) {
-    if (players.length === 0) return;
-
-    const { aiApiKey } = gs.settings;
-    if (aiApiKey) {
-      const result = await batchConversationAI.generate(players);
-
-      // 状況整理を更新
-      if (result.summary) {
-        const { chat, prediction } = result.summary;
-        const parts = [];
-        if (chat) parts.push(`【状況まとめ】${chat}`);
-        if (prediction) parts.push(`【役職予想】${prediction}`);
-        if (parts.length > 0) {
-          gs.logicAiOutput = parts.join('\n');
-          gs.save();
-        }
-      }
-
-      // 有効な投稿があればバッチ結果を使用
-      if (result.posts.length > 0) {
-        for (const postData of result.posts) {
-          const player = players.find((p) => p.name === postData.name);
-          if (!player) continue;
-
-          const delayMs = postData.delay != null
-            ? Math.max(400, Math.min(5000, postData.delay * 1000))
-            : (800 + Math.random() * 700);
-          await sleep(delayMs);
-          bbs.showTypingIndicator(player.name);
-          await sleep(600 + Math.random() * 800);
-          bbs.removeTypingIndicator();
-
-          const post = gs.addPost({
-            playerName: player.name,
-            playerId: player.id,
-            content: postData.talk,
-            coRole: player.coRole,
-          });
-          bbs.renderPost(post);
-          gs.save();
-        }
-        return;
-      }
-    }
-
-    // フォールバック: 個別生成
-    await runAISpeeches(players);
-  }
-
-  // --- AIの発言ループ（個別生成）---
-  async function runAISpeeches(players) {
-    for (const player of players) {
-      await sleep(800 + Math.random() * 700);
-      bbs.showTypingIndicator(player.name);
-      await sleep(1000 + Math.random() * 1000);
-      const speech = await aiPlayer.generateSpeech(player);
-      bbs.removeTypingIndicator();
-
-      const post = gs.addPost({
-        playerName: player.name,
-        playerId: player.id,
-        content: speech,
-        coRole: player.coRole,
-      });
-      bbs.renderPost(post);
-      gs.save();
-
-      await triggerLogicAiIfNeeded();
-    }
-  }
 
   // --- ロジックAI 発動チェック ---
   async function triggerLogicAiIfNeeded() {
@@ -555,9 +483,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     selectedVoteTargetId = null;
     renderChatTopActions();
 
-    // 人間の投票UI
-    showVotePanel();
+    gs.addSystemPost('投票が締め切られました。集計を行います…');
+    bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
+
     gs.save();
+    await sleep(500);
+    await runExecution();
   }
 
   function showVotePanel() {
@@ -781,13 +712,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!chatTopActions) return;
     chatTopActions.innerHTML = '';
 
-    if (gs.phase === GAME_PHASES.VOTE) {
+    // 投票ボタン：昼・投票フェーズで生存している場合は常時表示
+    if (humanPlayer.isAlive && (gs.phase === GAME_PHASES.DAY || gs.phase === GAME_PHASES.VOTE)) {
       const voteBtn = document.createElement('button');
       voteBtn.type = 'button';
-      voteBtn.className = 'btn btn--vote btn--sm btn--attention';
-      voteBtn.textContent = '🗳️ 投票先を選ぶ';
+      voteBtn.className = 'btn btn--vote btn--sm';
+      voteBtn.disabled = uiLocked;
+      const currentVoteTarget = selectedVoteTargetId ? gs.getPlayer(selectedVoteTargetId) : null;
+      voteBtn.textContent = currentVoteTarget
+        ? `🗳️ ${currentVoteTarget.name}に投票中`
+        : '🗳️ 投票先を選ぶ';
       voteBtn.addEventListener('click', () => showVoteModal());
       chatTopActions.appendChild(voteBtn);
+    }
+
+    // 様子を見るボタン：昼フェーズのみ表示
+    if (gs.phase === GAME_PHASES.DAY) {
+      const watchBtn = document.createElement('button');
+      watchBtn.type = 'button';
+      watchBtn.id = 'watch-btn';
+      watchBtn.className = 'btn btn--watch btn--sm';
+      if (uiLocked) {
+        watchBtn.textContent = '📖 AI生成中…';
+        watchBtn.disabled = true;
+      } else if (bufferGenerating && conversationBuffer.length === 0) {
+        watchBtn.textContent = '📖 読み込み中…';
+        watchBtn.disabled = true;
+      } else if (conversationBuffer.length === 0) {
+        watchBtn.textContent = '📖 様子を見る';
+        watchBtn.disabled = true;
+      } else {
+        watchBtn.textContent = '📖 様子を見る';
+        watchBtn.disabled = false;
+      }
+      watchBtn.addEventListener('click', () => revealNextPost());
+      chatTopActions.appendChild(watchBtn);
     }
 
     if (gs.phase === GAME_PHASES.NIGHT && humanPlayer.isAlive) {
@@ -801,7 +760,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const nightBtn = document.createElement('button');
         nightBtn.type = 'button';
         nightBtn.id = 'night-action-btn';
-        nightBtn.className = 'btn btn--night btn--sm btn--attention';
+        nightBtn.className = 'btn btn--night btn--sm';
         nightBtn.textContent = btnLabel;
         nightBtn.addEventListener('click', () => showNightModal());
         chatTopActions.appendChild(nightBtn);
@@ -884,8 +843,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function submitVote(target) {
-    if (gs.phase !== GAME_PHASES.VOTE) return;
+    const allowed = gs.phase === GAME_PHASES.DAY || gs.phase === GAME_PHASES.VOTE;
+    if (!allowed || !humanPlayer.isAlive) return;
+
+    selectedVoteTargetId = target.id;
     gs.castVote(humanPlayer.id, target.id);
+
     const post = gs.addPost({
       playerName: humanPlayer.name,
       playerId: humanPlayer.id,
@@ -894,43 +857,148 @@ document.addEventListener('DOMContentLoaded', async () => {
       coRole: humanPlayer.coRole,
     });
     bbs.renderPost(post);
-
-    const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
-
-    const voteResult = await batchConversationAI.generateVotes(aiPlayers);
-    for (const voteData of voteResult.votes) {
-      const player = aiPlayers.find((p) => p.name === voteData.name);
-      if (!player) continue;
-
-      const delayMs = voteData.delay != null
-        ? Math.max(300, Math.min(3000, voteData.delay * 1000))
-        : 400;
-      await sleep(delayMs);
-
-      // 投票先プレイヤーを名前で解決
-      const decidedTarget = gs.getAlivePlayers().find((p) => p.name === voteData.vote);
-      if (decidedTarget) {
-        gs.castVote(player.id, decidedTarget.id);
-      } else {
-        console.warn(`AI投票: "${player.name}" の投票先 "${voteData.vote}" が見つかりません`);
-      }
-
-      const talkContent = voteData.talk && voteData.talk.trim()
-        ? voteData.talk
-        : decidedTarget ? `${getPlayerDisplayText(decidedTarget)} に投票します。` : '（投票）';
-      const aiVotePost = gs.addPost({
-        playerName: player.name,
-        playerId: player.id,
-        content: talkContent,
-        type: 'vote',
-        coRole: player.coRole,
-      });
-      bbs.renderPost(aiVotePost);
-    }
-
-    selectedVoteTargetId = null;
     renderChatTopActions();
     gs.save();
-    await runExecution();
+
+    checkVoteWarning();
+    checkAndTriggerVote();
+  }
+
+  // --- 投票警告チェック ---
+  function checkVoteWarning() {
+    if (gs.phase !== GAME_PHASES.DAY) return;
+    const alive = gs.getAlivePlayers();
+    const voterCount = Object.keys(gs.votes).filter((id) => alive.some((p) => p.id === id)).length;
+    const majority = Math.floor(alive.length / 2) + 1;
+
+    if (voterCount === majority - 1 && majority > 1) {
+      // 「あと一人投票すると投票フェーズ移行」の警告（majority - 1 = 遷移まであと1票の状態）
+      const recentSystem = gs.bbsLog.slice(-5).find(
+        (p) => p.type === 'system' && p.content?.includes('あと一人が投票先を設定')
+      );
+      if (!recentSystem) {
+        gs.addSystemPost('【GMより】あと一人が投票先を設定すると、投票フェーズに移行します。');
+        bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
+        gs.save();
+      }
+    }
+  }
+
+  // --- 投票閾値チェック・DAY→VOTE 自動遷移 ---
+  function checkAndTriggerVote() {
+    if (gs.phase !== GAME_PHASES.DAY) return false;
+    const alive = gs.getAlivePlayers();
+    const voterCount = Object.keys(gs.votes).filter((id) => alive.some((p) => p.id === id)).length;
+    const majority = Math.floor(alive.length / 2) + 1;
+
+    if (voterCount >= majority) {
+      conversationBuffer = [];
+      gs.nextPhase(); // DAY -> VOTE
+      gs.save();
+      runVote();
+      return true;
+    }
+    return false;
+  }
+
+  // --- バッファ生成 ---
+  async function generateConversationBuffer(count) {
+    if (bufferGenerating) return;
+    bufferGenerating = true;
+    renderChatTopActions();
+    try {
+      const result = await batchConversationAI.generateAdventure(count);
+      conversationBuffer.push(...result.posts);
+      if (result.summary) {
+        const { chat, prediction } = result.summary;
+        const parts = [];
+        if (chat) parts.push(`【状況まとめ】${chat}`);
+        if (prediction) parts.push(`【役職予想】${prediction}`);
+        if (parts.length > 0) {
+          gs.logicAiOutput = parts.join('\n');
+          gs.save();
+        }
+      }
+    } finally {
+      bufferGenerating = false;
+      renderChatTopActions();
+    }
+  }
+
+  // --- バッファから次の投稿を表示 ---
+  async function revealNextPost() {
+    if (uiLocked || gs.phase !== GAME_PHASES.DAY) return;
+
+    // 有効な投稿を探す（死亡・人間プレイヤーはスキップ）
+    let postData = null;
+    while (conversationBuffer.length > 0) {
+      const candidate = conversationBuffer.shift();
+      const player = gs.getAlivePlayers().find((p) => p.name === candidate.name && !p.isHuman);
+      if (player) {
+        postData = { ...candidate, player };
+        break;
+      }
+    }
+
+    renderChatTopActions();
+
+    if (!postData) {
+      if (!bufferGenerating) {
+        generateConversationBuffer(BUFFER_REFILL_COUNT);
+      }
+      return;
+    }
+
+    const { player } = postData;
+
+    // CO 適用（有効な役職IDの場合のみ）
+    const validRoleIds = new Set(Object.values(ROLES).map((r) => r.id));
+    if (postData.coRole && !player.coRole) {
+      if (validRoleIds.has(postData.coRole)) {
+        player.coRole = postData.coRole;
+      } else {
+        console.warn(`revealNextPost: 無効な coRole "${postData.coRole}" (${player.name})`);
+      }
+    }
+
+    // 投票先変更適用
+    if (postData.vote) {
+      const voteTarget = gs.getAlivePlayers().find(
+        (p) => p.name === postData.vote && p.id !== player.id
+      );
+      if (voteTarget) {
+        gs.castVote(player.id, voteTarget.id);
+        checkVoteWarning();
+      }
+    }
+
+    const post = gs.addPost({
+      playerName: player.name,
+      playerId: player.id,
+      content: postData.talk,
+      coRole: player.coRole,
+      type: 'speech',
+    });
+    bbs.renderPost(post);
+    renderPlayers();
+    gs.save();
+
+    // バッファが少なくなったらバックグラウンドで補充
+    if (conversationBuffer.length <= BUFFER_REFILL_AT && !bufferGenerating) {
+      generateConversationBuffer(BUFFER_REFILL_COUNT);
+    }
+
+    await triggerLogicAiIfNeeded();
+
+    checkAndTriggerVote();
+  }
+
+  // --- ローディング状態管理 ---
+  function setLoadingState(loading) {
+    uiLocked = loading;
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.toggle('hidden', !loading);
+    updateChatAvailability();
+    renderChatTopActions();
   }
 });

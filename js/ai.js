@@ -799,6 +799,171 @@ class BatchConversationAI {
     };
   }
 
+  // アドベンチャーモード用：全AIプレイヤーの会話を一括生成
+  // CO・投票先変更も含む。戻り値: { posts: [{name, talk, coRole, vote}], summary }
+  async generateAdventure(targetCount = 30) {
+    const gs = this.gameState;
+    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
+    const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
+
+    if (!aiApiKey || aiPlayers.length === 0) {
+      return this._fallbackAdventure(aiPlayers, targetCount);
+    }
+
+    const systemPrompt = '人狼ゲームの進行AIです。登場人物たちの会話を、指定されたJSON形式で生成してください。';
+    const userPrompt = this._buildAdventurePrompt(aiPlayers, targetCount);
+
+    try {
+      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, {
+        jsonMode: true,
+        maxTokens: 3000,
+        reasoningEffort,
+      });
+      return this._parseAdventureResponse(responseText, aiPlayers);
+    } catch (e) {
+      console.warn('アドベンチャー会話生成エラー:', e);
+      return this._fallbackAdventure(aiPlayers, targetCount);
+    }
+  }
+
+  _buildAdventurePrompt(aiPlayers, targetCount) {
+    const gs = this.gameState;
+    const roomLevel = gs.settings.roomLevel || 'intermediate';
+    const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
+    const lines = [];
+
+    lines.push('人狼ゲームの続きの会話を生成してください。');
+    lines.push('');
+
+    if (roomLevelPrompt) {
+      lines.push('# 備考');
+      lines.push(roomLevelPrompt);
+      lines.push('');
+    }
+
+    lines.push('# 登場人物');
+    gs.getAlivePlayers().forEach((player) => {
+      if (player.isHuman) return;
+      lines.push(`## ${player.name}`);
+      lines.push(`役職：${player.role?.name || '村人'}`);
+      if (player.personality) lines.push(`性格・スタイル：${player.personality}`);
+      const voteTargetId = gs.votes[player.id];
+      if (voteTargetId) {
+        const target = gs.getPlayer(voteTargetId);
+        if (target) lines.push(`現在の投票先：${target.name}`);
+      }
+    });
+    lines.push('');
+
+    lines.push('# チャット履歴');
+    const publicPosts = gs.bbsLog
+      .filter((p) => p.type !== 'wolf_chat' && p.type !== 'whisper')
+      .slice(-50);
+    publicPosts.forEach((post) => {
+      lines.push(post.type === 'system'
+        ? this._formatSystemEntry(post)
+        : this._formatPostEntry(post));
+    });
+    lines.push('');
+
+    const wolfPosts = gs.bbsLog.filter((p) => p.type === 'wolf_chat' || p.type === 'whisper');
+    if (wolfPosts.length > 0) {
+      lines.push('# 人狼チャット履歴');
+      wolfPosts.forEach((post) => lines.push(this._formatPostEntry(post)));
+      lines.push('');
+    }
+
+    if (gs.logicAiOutput) {
+      lines.push('# 前回の状況整理');
+      lines.push(gs.logicAiOutput);
+      lines.push('');
+    }
+
+    const aliveWithVotes = gs.getAlivePlayers().filter((p) => gs.votes[p.id]);
+    if (aliveWithVotes.length > 0) {
+      lines.push('# 現在の投票状況');
+      aliveWithVotes.forEach((p) => {
+        const target = gs.getPlayer(gs.votes[p.id]);
+        if (target) lines.push(`${p.name} → ${target.name}`);
+      });
+      lines.push('');
+    }
+
+    lines.push('# 指示');
+    lines.push(`上記の会話の続きを約${targetCount}発言生成してください。`);
+    lines.push('登場人物たちは自然に会話を続けます。');
+    lines.push('各キャラクターは任意のタイミングで投票先を決定・変更できます（vote フィールドを使用）。');
+    lines.push('各キャラクターは任意のタイミングで役職をCOできます（coRole フィールドを使用）。');
+    lines.push('');
+
+    lines.push('# 出力形式');
+    lines.push('以下のJSON形式で出力してください：');
+    lines.push(JSON.stringify({
+      posts: [{ name: 'プレイヤー名', talk: '発言内容', coRole: '役職ID（省略可）', vote: '投票先プレイヤー名（省略可）' }],
+      summary: { chat: '現在の会話状況のまとめ', prediction: '各プレイヤーの役職予想' },
+    }, null, 2));
+    lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
+    lines.push(`vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）`);
+    lines.push(`約${targetCount}発言になるよう生成してください。`);
+
+    return lines.join('\n');
+  }
+
+  _parseAdventureResponse(responseText, aiPlayers) {
+    try {
+      const data = this._normalizeConversationJson(responseText);
+      if (!Array.isArray(data.posts)) throw new Error('postsが配列ではありません');
+
+      const validNames = new Set(aiPlayers.map((p) => p.name));
+      const aliveNames = new Set(this.gameState.getAlivePlayers().map((p) => p.name));
+
+      const validPosts = data.posts.filter(
+        (post) =>
+          post &&
+          typeof post.name === 'string' &&
+          validNames.has(post.name) &&
+          typeof post.talk === 'string' &&
+          post.talk.trim()
+      ).map((post) => ({
+        name: post.name,
+        talk: post.talk,
+        coRole: (typeof post.coRole === 'string' && post.coRole.trim()) ? post.coRole.trim() : null,
+        vote: (typeof post.vote === 'string' && aliveNames.has(post.vote) && post.vote !== post.name) ? post.vote : null,
+      }));
+
+      if (validPosts.length === 0) throw new Error('有効な投稿がありません');
+
+      return {
+        posts: validPosts,
+        summary: data.summary && typeof data.summary === 'object' ? data.summary : null,
+      };
+    } catch (e) {
+      console.warn('アドベンチャー会話JSONパースエラー:', e, responseText);
+      return this._fallbackAdventure(aiPlayers, 5);
+    }
+  }
+
+  _fallbackAdventure(aiPlayers, count) {
+    const speeches = [
+      'う〜ん、誰が怪しいかな…',
+      'みんな落ち着いて議論しましょう。',
+      '私はまだ判断できていません。情報を集めましょう。',
+      '昨日の行動を振り返ってみるべきでは？',
+      '誰か怪しい人の名前を挙げてみてください。',
+    ];
+    const targets = aiPlayers.length > 0 ? aiPlayers : [{ name: '？', role: null, personality: null }];
+    const total = Math.min(count, targets.length * 4);
+    return {
+      posts: Array.from({ length: total }, (_, i) => ({
+        name: targets[i % targets.length].name,
+        talk: speeches[Math.floor(Math.random() * speeches.length)],
+        coRole: null,
+        vote: null,
+      })),
+      summary: null,
+    };
+  }
+
   _escapeForJson(str) {
     return String(str || '')
       .replace(/\\/g, '\\\\')
