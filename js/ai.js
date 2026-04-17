@@ -379,7 +379,6 @@ class BatchConversationAI {
       // 先頭の { がない場合、{ ... } で包んでみる
       if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
         try { return parseMaybeNestedJson(`{${trimmed}}`); } catch (_) { /* ignore */ }
-        try { return parseMaybeNestedJson(`{${trimmed}`); } catch (_) { /* ignore */ }
       }
       // 末尾の } がない場合（先頭の { はある）
       if (trimmed.startsWith('{') && !trimmed.endsWith('}')) {
@@ -493,11 +492,10 @@ class BatchConversationAI {
       } else if (start === -1) {
         jsonStr = `{${jsonStr}`;
         start = 0;
-      } else if (end <= start) {
+      } else if (end === -1) {
         jsonStr = `${jsonStr}}`;
         end = jsonStr.length - 1;
       }
-      if (start === -1 || end === -1) throw new Error('JSONオブジェクトが見つかりません');
 
       const data = JSON.parse(jsonStr.slice(start, end + 1));
       if (!Array.isArray(data.votes)) throw new Error('votesが配列ではありません');
