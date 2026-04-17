@@ -7,6 +7,9 @@ async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
     ? reasoningEffort
     : 'medium';
 
+  console.log('[LLM Input] System Prompt:\n', systemPrompt);
+  console.log('[LLM Input] User Prompt:\n', userPrompt);
+
   if (model.startsWith('gemini-')) {
     const generationConfig = { maxOutputTokens: maxTokens, temperature: 0.8 };
     if (jsonMode) generationConfig.responseMimeType = 'application/json';
@@ -34,7 +37,9 @@ async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
     }
 
     const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('\n').trim() || '';
+    const geminiResult = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('\n').trim() || '';
+    console.log('[LLM Output]:\n', geminiResult);
+    return geminiResult;
   }
 
   const openAiBody = {
@@ -64,5 +69,7 @@ async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
   }
 
   const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() || '';
+  const openAiResult = data.choices?.[0]?.message?.content?.trim() || '';
+  console.log('[LLM Output]:\n', openAiResult);
+  return openAiResult;
 }
