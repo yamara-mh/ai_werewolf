@@ -2,7 +2,7 @@
 // Gemini / OpenAI 互換 API への共通リクエスト関数
 
 async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
-  const { jsonMode = false, maxTokens = 400, reasoningEffort = 'medium' } = options;
+  const { jsonMode = false, maxTokens = 1600, reasoningEffort = 'medium' } = options;
   const validReasoningEffort = ['low', 'medium', 'high'].includes(reasoningEffort)
     ? reasoningEffort
     : 'medium';

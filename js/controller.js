@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const logicAiBtn = document.getElementById('logic-ai-btn');
   const bookmarkFilterBtn = document.getElementById('bookmark-filter-btn');
   const chatTopActions = document.getElementById('chat-top-actions');
+  const watchBar = document.getElementById('watch-bar');
   const logicAiModal = document.getElementById('logic-ai-modal');
   const logicAiContent = document.getElementById('logic-ai-content');
   const logicAiClose = document.getElementById('logic-ai-close');
@@ -654,6 +655,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     endModal.classList.remove('hidden');
     selectedVoteTargetId = null;
     if (chatTopActions) chatTopActions.innerHTML = '';
+    if (watchBar) watchBar.innerHTML = '';
   }
 
   if (restartBtn) {
@@ -698,27 +700,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderChatTopActions() {
     if (!chatTopActions) return;
     chatTopActions.innerHTML = '';
+    if (watchBar) watchBar.innerHTML = '';
 
-    // 投票ボタン：昼・投票フェーズで生存している場合は常時表示
-    if (humanPlayer.isAlive && (gs.phase === GAME_PHASES.DAY || gs.phase === GAME_PHASES.VOTE)) {
-      const voteBtn = document.createElement('button');
-      voteBtn.type = 'button';
-      voteBtn.className = 'btn btn--vote btn--sm';
-      voteBtn.disabled = uiLocked;
-      const currentVoteTarget = selectedVoteTargetId ? gs.getPlayer(selectedVoteTargetId) : null;
-      voteBtn.textContent = currentVoteTarget
-        ? `🗳️ ${currentVoteTarget.name}に投票中`
-        : '🗳️ 投票先を選ぶ';
-      voteBtn.addEventListener('click', () => showVoteModal());
-      chatTopActions.appendChild(voteBtn);
-    }
-
-    // 様子を見るボタン：昼フェーズのみ表示
-    if (gs.phase === GAME_PHASES.DAY) {
+    // 様子を見るボタン：昼フェーズのみ表示（watch-bar に配置）
+    if (gs.phase === GAME_PHASES.DAY && watchBar) {
       const watchBtn = document.createElement('button');
       watchBtn.type = 'button';
       watchBtn.id = 'watch-btn';
-      watchBtn.className = 'btn btn--watch btn--sm';
+      watchBtn.className = 'btn btn--watch btn--watch-bar';
       if (uiLocked) {
         watchBtn.textContent = '📖 AI生成中…';
         watchBtn.disabled = true;
@@ -733,7 +722,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         watchBtn.disabled = false;
       }
       watchBtn.addEventListener('click', () => revealNextPost());
-      chatTopActions.appendChild(watchBtn);
+      watchBar.appendChild(watchBtn);
+    }
+
+    // 投票ボタン：昼・投票フェーズで生存している場合は常時表示
+    if (humanPlayer.isAlive && (gs.phase === GAME_PHASES.DAY || gs.phase === GAME_PHASES.VOTE)) {
+      const voteBtn = document.createElement('button');
+      voteBtn.type = 'button';
+      voteBtn.className = 'btn btn--vote btn--sm';
+      voteBtn.disabled = uiLocked;
+      const currentVoteTarget = selectedVoteTargetId ? gs.getPlayer(selectedVoteTargetId) : null;
+      voteBtn.textContent = currentVoteTarget
+        ? `🗳️ ${currentVoteTarget.name}に投票中`
+        : '🗳️ 投票先を選ぶ';
+      voteBtn.addEventListener('click', () => showVoteModal());
+      chatTopActions.appendChild(voteBtn);
     }
 
     if (gs.phase === GAME_PHASES.NIGHT && humanPlayer.isAlive) {
