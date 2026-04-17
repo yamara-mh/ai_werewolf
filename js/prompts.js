@@ -344,7 +344,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   lines.push('{ "name" : "プレイヤー名", "talk" : "発言内容" }');
   lines.push('## カミングアウト');
   lines.push('{ "name" : "プレイヤー名", "coRole" : "seer" }');
-  lines.push('## 行動（投票）');
+  lines.push('## 行動（投票／占い／防衛／襲撃）');
   lines.push('{ "name" : "プレイヤー名", "target" : "投票先プレイヤー名" }');
   lines.push('');
 

@@ -621,7 +621,8 @@ class BatchConversationAI {
           post &&
           typeof post.name === 'string' &&
           validNames.has(post.name) &&
-          (typeof post.talk === 'string' ? post.talk.trim() : (post.coRole || post.target))
+      // talk がない場合でも coRole（CO専用投稿）や target（投票専用投稿）があれば有効とする
+      (typeof post.talk === 'string' ? post.talk.trim() : (post.coRole || post.target))
       ).map((post) => {
         // target フィールド（新形式）と vote フィールド（旧形式）の両方に対応
         const voteValue = post.target || post.vote;
