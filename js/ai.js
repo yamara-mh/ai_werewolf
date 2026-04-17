@@ -1,54 +1,7 @@
 // AI プレイヤーロジック
 // callAI は api.js、プロンプト構築は prompts.js で定義されています
 
-// --- ロジックAI ---
-
-class LogicAI {
-  constructor(gameState) {
-    this.gameState = gameState;
-  }
-
-  async analyze() {
-    const gs = this.gameState;
-    const { aiApiKey, logicAiModel, reasoningEffort } = gs.settings;
-
-    if (!aiApiKey) return this._fallbackAnalysis();
-
-    const model = logicAiModel || 'gemini-flash-latest';
-    const userPrompt = this._buildUserPrompt();
-
-    try {
-      return await callAI(LOGIC_AI_SYSTEM_PROMPT, userPrompt, aiApiKey, model, { reasoningEffort });
-    } catch (e) {
-      console.warn('ロジックAI分析エラー:', e);
-      return this._fallbackAnalysis();
-    }
-  }
-
-  _buildUserPrompt() {
-    const gs = this.gameState;
-    const alivePlayersText = gs.getAlivePlayers().map((p) => p.name).join('、');
-    const deadPlayersText = gs.players
-      .filter((p) => !p.isAlive)
-      .map((p) => p.name)
-      .join('、');
-    const recentPostsText = gs.bbsLog
-      .filter((p) => p.type !== 'system')
-      .slice(-30)
-      .map((p) => {
-        const coLabel = p.coRole ? `[${ROLE_BY_ID?.[p.coRole]?.name || p.coRole}CO]` : '';
-        return `${p.playerName}${coLabel}: ${p.content}`;
-      })
-      .join('\n');
-    return buildLogicAiUserPrompt(gs.day, alivePlayersText, deadPlayersText, recentPostsText);
-  }
-
-  _fallbackAnalysis() {
-    return '（APIキーが設定されていないため、分析できません）';
-  }
-}
-
-// --- AIプレイヤー ---
+// --- AIプレイヤー（夜アクション専用） ---
 
 class AIPlayer {
   constructor(gameState) {
@@ -146,7 +99,6 @@ class AIPlayer {
       isWolf,
       teammates,
       roomLevelPrompt,
-      gs.logicAiOutput,
     );
   }
 
@@ -287,22 +239,29 @@ class BatchConversationAI {
   _buildPrompt(targetPlayers) {
     const gs = this.gameState;
     const roomLevel = gs.settings.roomLevel || 'intermediate';
+    const roomLevelLabel = ROOM_LEVELS[roomLevel]?.label || '';
     const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
-    const alivePlayers = gs.getAlivePlayers()
-      .filter((p) => !p.isHuman)
-      .map((p) => ({ name: p.name, role: p.role, personality: p.personality }));
-    const publicPosts = gs.bbsLog
-      .filter((p) => p.type !== 'wolf_chat' && p.type !== 'whisper')
-      .slice(-50);
-    const wolfPosts = gs.bbsLog.filter((p) => p.type === 'wolf_chat' || p.type === 'whisper');
+    const allPlayers = gs.getAlivePlayers().map((p) => ({
+      name: p.name,
+      role: p.role,
+      personality: p.personality || '',
+      firstPersonPronouns: p.firstPersonPronouns || '',
+      speakingStyle: p.speakingStyle || '',
+    }));
+    const todayPosts = gs.getTodayPosts();
+    const wolfPosts = gs.bbsLog.filter(
+      (p) => p.day === gs.day && (p.type === 'wolf_chat' || p.type === 'whisper')
+    );
     const targetNames = targetPlayers.map((p) => p.name).join('、');
     return buildBatchConversationUserPrompt({
+      roomLevelLabel,
       roomLevelPrompt,
-      alivePlayers,
-      publicPosts,
+      allPlayers,
+      previousDaysSynopsis: gs.previousDaysSynopsis || '',
+      todayPosts,
       wolfPosts,
-      logicAiOutput: gs.logicAiOutput,
       targetNames,
+      targetCount: targetPlayers.length * 2,
     });
   }
 
@@ -484,9 +443,7 @@ class BatchConversationAI {
     const gs = this.gameState;
     const roomLevel = gs.settings.roomLevel || 'intermediate';
     const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
-    const publicPosts = gs.bbsLog
-      .filter((p) => p.type !== 'wolf_chat' && p.type !== 'whisper')
-      .slice(-50);
+    const publicPosts = gs.getTodayPosts();
     const candidateNames = gs.getAlivePlayers().map((p) => p.name).join('、');
     const targetPlayersData = targetPlayers.map((p) => ({ name: p.name, role: p.role, personality: p.personality }));
     return buildBatchVoteUserPrompt({
@@ -613,23 +570,25 @@ class BatchConversationAI {
   _buildAdventurePrompt(aiPlayers, targetCount) {
     const gs = this.gameState;
     const roomLevel = gs.settings.roomLevel || 'intermediate';
+    const roomLevelLabel = ROOM_LEVELS[roomLevel]?.label || '';
     const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
-    const aiPlayersWithVotes = gs.getAlivePlayers()
-      .filter((p) => !p.isHuman)
-      .map((p) => {
-        const voteTargetId = gs.votes[p.id];
-        const voteTarget = voteTargetId ? gs.getPlayer(voteTargetId) : null;
-        return {
-          name: p.name,
-          role: p.role,
-          personality: p.personality,
-          currentVote: voteTarget ? voteTarget.name : null,
-        };
-      });
-    const publicPosts = gs.bbsLog
-      .filter((p) => p.type !== 'wolf_chat' && p.type !== 'whisper')
-      .slice(-50);
-    const wolfPosts = gs.bbsLog.filter((p) => p.type === 'wolf_chat' || p.type === 'whisper');
+    // 全生存プレイヤー（人間含む）の情報を渡す
+    const allPlayers = gs.getAlivePlayers().map((p) => {
+      const voteTargetId = gs.votes[p.id];
+      const voteTarget = voteTargetId ? gs.getPlayer(voteTargetId) : null;
+      return {
+        name: p.name,
+        role: p.role,
+        personality: p.personality || '',
+        firstPersonPronouns: p.firstPersonPronouns || '',
+        speakingStyle: p.speakingStyle || '',
+        currentVote: voteTarget ? voteTarget.name : null,
+      };
+    });
+    const todayPosts = gs.getTodayPosts();
+    const wolfPosts = gs.bbsLog.filter(
+      (p) => p.day === gs.day && (p.type === 'wolf_chat' || p.type === 'whisper')
+    );
     const currentVotes = gs.getAlivePlayers()
       .filter((p) => gs.votes[p.id])
       .map((p) => {
@@ -638,11 +597,12 @@ class BatchConversationAI {
       })
       .filter(Boolean);
     return buildAdventureUserPrompt({
+      roomLevelLabel,
       roomLevelPrompt,
-      aiPlayersWithVotes,
-      publicPosts,
+      allPlayers,
+      previousDaysSynopsis: gs.previousDaysSynopsis || '',
+      todayPosts,
       wolfPosts,
-      logicAiOutput: gs.logicAiOutput,
       currentVotes,
       targetCount,
     });
@@ -661,14 +621,18 @@ class BatchConversationAI {
           post &&
           typeof post.name === 'string' &&
           validNames.has(post.name) &&
-          typeof post.talk === 'string' &&
-          post.talk.trim()
-      ).map((post) => ({
-        name: post.name,
-        talk: post.talk,
-        coRole: (typeof post.coRole === 'string' && post.coRole.trim()) ? post.coRole.trim() : null,
-        vote: (typeof post.vote === 'string' && aliveNames.has(post.vote) && post.vote !== post.name) ? post.vote : null,
-      }));
+          (typeof post.talk === 'string' ? post.talk.trim() : (post.coRole || post.target))
+      ).map((post) => {
+        // target フィールド（新形式）と vote フィールド（旧形式）の両方に対応
+        const voteValue = post.target || post.vote;
+        return {
+          name: post.name,
+          talk: (typeof post.talk === 'string') ? post.talk : '',
+          coRole: (typeof post.coRole === 'string' && post.coRole.trim()) ? post.coRole.trim() : null,
+          vote: (typeof voteValue === 'string' && aliveNames.has(voteValue) && voteValue !== post.name) ? voteValue : null,
+          delay: (typeof post.delay === 'number' && post.delay > 0) ? post.delay : null,
+        };
+      });
 
       if (validPosts.length === 0) throw new Error('有効な投稿がありません');
 
@@ -679,6 +643,30 @@ class BatchConversationAI {
     } catch (e) {
       console.warn('アドベンチャー会話JSONパースエラー:', e, responseText);
       return this._fallbackAdventure(aiPlayers, 5);
+    }
+  }
+
+  // 夜ターン: 今日のチャットを「前日までのあらすじ」としてまとめる
+  // 戻り値: あらすじ文字列（失敗時は既存の logicAiOutput または空文字）
+  async generateSynopsis() {
+    const gs = this.gameState;
+    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
+    const todayPosts = gs.getTodayPosts();
+
+    if (!aiApiKey || todayPosts.length === 0) {
+      return gs.logicAiOutput || gs.previousDaysSynopsis || '';
+    }
+
+    const userPrompt = buildSynopsisUserPrompt(gs.day, gs.previousDaysSynopsis, todayPosts);
+
+    try {
+      return await callAI(SYNOPSIS_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
+        maxTokens: 500,
+        reasoningEffort,
+      });
+    } catch (e) {
+      console.warn('あらすじ生成エラー:', e);
+      return gs.logicAiOutput || gs.previousDaysSynopsis || '';
     }
   }
 

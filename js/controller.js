@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const bbs = new BBS('bbs-container');
   const aiPlayer = new AIPlayer(gs);
-  const logicAi = new LogicAI(gs);
   const batchConversationAI = new BatchConversationAI(gs);
   const humanPlayer = gs.getHumanPlayer();
 
@@ -39,9 +38,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const nightModalPlayerList = document.getElementById('night-modal-player-list');
   const nightModalBackBtn = document.getElementById('night-modal-back-btn');
   const bbsContainer = document.getElementById('bbs-container');
-
-  // ロジックAI 発動閾値管理
-  let lastLogicAiThreshold = 0;
 
   let activePlayerFilterId = null;
   let selectedVoteTargetId = null;
@@ -261,7 +257,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderPlayers();
       gs.save();
       coRoleSelect.value = '';
-      await triggerLogicAiIfNeeded();
     });
   }
 
@@ -287,9 +282,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       else normalChatDraft = '';
       renderPlayers();
       gs.save();
-
-      // ロジックAI発動チェック
-      await triggerLogicAiIfNeeded();
 
       // 昼フェーズ：バッファをクリアしてローディング付きで再生成
       if (gs.phase === GAME_PHASES.DAY) {
@@ -462,20 +454,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
 
-  // --- ロジックAI 発動チェック ---
-  async function triggerLogicAiIfNeeded() {
-    const totalChars = gs.bbsLog
-      .filter((p) => p.type !== 'system')
-      .reduce((sum, p) => sum + (p.content ? p.content.length : 0), 0);
-    const threshold = Math.floor(totalChars / 500);
-    if (threshold > lastLogicAiThreshold) {
-      lastLogicAiThreshold = threshold;
-      const analysis = await logicAi.analyze();
-      gs.logicAiOutput = analysis;
-      gs.save();
-    }
-  }
-
   // --- 投票フェーズ ---
   async function runVote() {
     bbs.renderPhaseHeader(gs.day, gs.phase);
@@ -559,6 +537,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateHeader();
     gs.addSystemPost('夜が訪れました。人狼が村人を狙っています…');
     bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
+
+    // 今日のチャットを「前日までのあらすじ」としてまとめる（バックグラウンドで実行）
+    batchConversationAI.generateSynopsis().then((synopsis) => {
+      if (synopsis) {
+        gs.previousDaysSynopsis = synopsis;
+        gs.logicAiOutput = synopsis;
+        gs.save();
+      }
+    }).catch((e) => console.warn('あらすじ更新エラー:', e));
 
     // AIのナイトアクション処理（バックグラウンド）
     const aiActionPromises = gs.getAlivePlayers()
@@ -987,8 +974,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (conversationBuffer.length <= BUFFER_REFILL_AT && !bufferGenerating) {
       generateConversationBuffer(BUFFER_REFILL_COUNT);
     }
-
-    await triggerLogicAiIfNeeded();
 
     checkAndTriggerVote();
   }

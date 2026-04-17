@@ -175,15 +175,48 @@ function buildRoleDeck(totalPlayers, werewolfCount, optionalRoleIds = []) {
   return roles;
 }
 
-const AI_PERSONALITIES = [
-  { name: 'アリス', style: '論理的・慎重' },
-  { name: 'ボブ',   style: '積極的・直感的' },
-  { name: 'キャロル', style: '観察力が高い・穏やか' },
-  { name: 'デイブ', style: '疑い深い・挑発的' },
-  { name: 'エヴァ', style: 'フレンドリー・協調的' },
-  { name: 'フランク', style: '寡黙・分析的' },
-  { name: 'グレース', style: '感情的・共感的' },
+// personality/PromptSheet.tsv から読み込んだデータで上書きされます（フォールバック用）
+let AI_PERSONALITIES = [
+  { name: 'ムライ',  character: '堅物な仙人',              firstPersonPronouns: '某',      speakingStyle: '古語。である調' },
+  { name: 'シノブ',  character: '明るいなりきり忍者少女',   firstPersonPronouns: '拙者',    speakingStyle: '古語。ござる調' },
+  { name: 'レイ',    character: '中二病少年',               firstPersonPronouns: '我',      speakingStyle: '難解。である調' },
+  { name: 'ルナピ',  character: '不真面目JKギャル',         firstPersonPronouns: 'アタシ',  speakingStyle: 'くだけた口調。語尾を伸ばす' },
+  { name: 'サマヨ',  character: '高飛車お嬢様',             firstPersonPronouns: 'ワタクシ', speakingStyle: '強気。ですわ調' },
+  { name: 'ヒョウタ', character: '卑怯な青年',              firstPersonPronouns: 'おいら',  speakingStyle: '弱気。吃音' },
+  { name: 'マサオ',  character: '自信家な生徒会長の男子高生', firstPersonPronouns: '僕',     speakingStyle: '簡潔にハッキリと話す' },
 ];
+
+/**
+ * personality/PromptSheet.tsv を取得・解析して AI_PERSONALITIES を上書きします。
+ * @param {string} [tsvPath='personality/PromptSheet.tsv']
+ * @returns {Promise<boolean>} 読み込み成功なら true
+ */
+async function loadPersonalitiesFromTsv(tsvPath = 'personality/PromptSheet.tsv') {
+  try {
+    const res = await fetch(tsvPath);
+    if (!res.ok) return false;
+    const text = await res.text();
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return false;
+    // 1行目はヘッダー（name\tcharacter\tfirstPersonPronouns\tspeakingStyle）
+    const parsed = lines.slice(1).map((line) => {
+      const [name, character, firstPersonPronouns, speakingStyle] = line.split('\t');
+      if (!name || !character) return null;
+      return {
+        name: name.trim(),
+        character: character.trim(),
+        firstPersonPronouns: (firstPersonPronouns || '').trim(),
+        speakingStyle: (speakingStyle || '').trim(),
+      };
+    }).filter(Boolean);
+    if (parsed.length === 0) return false;
+    AI_PERSONALITIES = parsed;
+    return true;
+  } catch (e) {
+    console.warn('PromptSheet.tsv の読み込みに失敗しました', e);
+    return false;
+  }
+}
 
 const GAME_STORAGE_KEY = 'ai_werewolf_game_state';
 

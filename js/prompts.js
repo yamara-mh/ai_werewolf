@@ -3,51 +3,22 @@
 // プロンプトの文言を変更する場合はこのファイルを編集してください。
 
 // ============================================================
-// ロジックAI (LogicAI)
-// ============================================================
-
-const LOGIC_AI_SYSTEM_PROMPT =
-  'あなたは人狼ゲームを観察するロジックAIです。村人の視点でチャットを分析し、' +
-  '確定情報・役職予想・人狼ライン候補・推奨行動を簡潔に整理してください。日本語で出力してください。';
-
-/**
- * @param {number} day
- * @param {string} alivePlayersText  生存プレイヤー名を読点区切りにした文字列
- * @param {string} deadPlayersText   死亡・処刑プレイヤー名を読点区切りにした文字列（なければ空文字）
- * @param {string} recentPostsText   直近の発言ログ（整形済み文字列）
- */
-function buildLogicAiUserPrompt(day, alivePlayersText, deadPlayersText, recentPostsText) {
-  return `現在: ${day}日目
-生存プレイヤー: ${alivePlayersText}
-${deadPlayersText ? `死亡・処刑: ${deadPlayersText}` : ''}
-以下の形式で分析してください：
-【確定情報】役職COした人物・死亡者など
-【役職予想】各プレイヤーの役職予想と根拠
-【人狼ライン候補】人狼の可能性が高いプレイヤーと理由
-【推奨行動】村人陣営として取るべき行動
-
-チャットログ（最近の発言）:
-${recentPostsText || '（発言なし）'}`;
-}
-
-// ============================================================
-// 個別AIプレイヤー (AIPlayer)
+// 個別AIプレイヤー (AIPlayer) — 夜アクション専用
 // ============================================================
 
 /**
  * @param {string}  name            AIプレイヤーの名前
- * @param {string}  personality     性格・スタイル
+ * @param {string}  personality     性格（character）
  * @param {object}  role            役職オブジェクト { name, description }
  * @param {boolean} isWolf          人狼陣営かどうか
  * @param {string}  teammates       仲間の人狼名（人狼陣営のみ、なければ空文字）
  * @param {string}  roomLevelPrompt 部屋レベルの補足指示（なければ空文字）
- * @param {string}  logicAiOutput   ロジックAIの分析結果（なければ空文字）
  */
-function buildAiPlayerSystemPrompt(name, personality, role, isWolf, teammates, roomLevelPrompt, logicAiOutput) {
+function buildAiPlayerSystemPrompt(name, personality, role, isWolf, teammates, roomLevelPrompt) {
   const lines = [
     'あなたは人狼ゲームのAIプレイヤーです。',
     `名前: ${name}`,
-    `性格・スタイル: ${personality}`,
+    `性格: ${personality}`,
     `役職: ${role?.name || '不明'}（${role?.description || ''}）`,
     `チーム: ${isWolf ? '人狼陣営' : '村人陣営'}`,
   ];
@@ -56,7 +27,6 @@ function buildAiPlayerSystemPrompt(name, personality, role, isWolf, teammates, r
   lines.push('ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く（1〜3文）発言してください。');
   lines.push('役職は絶対に明かさないでください（占い師が公開する場合を除く）。');
   lines.push('ゲームを楽しく盛り上げるよう心がけてください。');
-  if (logicAiOutput) lines.push(`\nあなたの思考（ロジック分析）:\n${logicAiOutput}`);
   return lines.join('\n');
 }
 
@@ -109,14 +79,9 @@ function buildAiPlayerNightActionUserPrompt(role, candidatesText) {
 }
 
 // ============================================================
-// バッチ会話生成AI (BatchConversationAI)
+// バッチ会話生成AI (BatchConversationAI) のシステムプロンプトと
+// フォーマットヘルパーは以下に定義しています。
 // ============================================================
-
-const BATCH_CONVERSATION_SYSTEM_PROMPT =
-  '人狼ゲームの進行AIです。登場人物たちの会話を、指定されたJSON形式で生成してください。';
-
-const BATCH_VOTE_SYSTEM_PROMPT =
-  '人狼ゲームの進行AIです。投票フェーズにおける各キャラクターの投票先と発言を、指定されたJSON形式で生成してください。';
 
 // --- チャット履歴フォーマットヘルパー ---
 
@@ -128,6 +93,18 @@ function _escapeForPrompt(str) {
     .replace(/\r/g, '\\r');
 }
 
+/**
+ * 1件の投稿をシンプルな JSON 1行に変換します。
+ * システム投稿の playerName は "GM" として出力します。
+ */
+function _formatPostSimple(post) {
+  const name = post.playerName === '★システム' ? 'GM' : post.playerName;
+  const obj = { name, talk: post.content || '' };
+  if (post.coRole) obj.coRole = post.coRole;
+  return JSON.stringify(obj);
+}
+
+// 後方互換のため旧フォーマット関数も残す
 function _formatSystemPostEntry(post) {
   return [
     '"system" : {',
@@ -151,69 +128,76 @@ function _formatPost(post) {
   return post.type === 'system' ? _formatSystemPostEntry(post) : _formatChatPostEntry(post);
 }
 
+// ============================================================
+// あらすじ生成プロンプト (Synopsis)
+// ============================================================
+
+const SYNOPSIS_SYSTEM_PROMPT =
+  '人狼ゲームのこれまでの出来事を簡潔にまとめてください。日本語でテキストのみ出力してください。';
+
+/**
+ * 夜ターンに「前日までのあらすじ」を生成するためのユーザープロンプトを構築します。
+ * @param {number} day             まとめる対象の日
+ * @param {string} previousSynopsis 既存のあらすじ（なければ空文字）
+ * @param {Array}  todayPosts       当日の公開チャット投稿配列
+ */
+function buildSynopsisUserPrompt(day, previousSynopsis, todayPosts) {
+  const lines = [];
+
+  if (previousSynopsis) {
+    lines.push('# これまでのあらすじ');
+    lines.push(previousSynopsis);
+    lines.push('');
+  }
+
+  lines.push(`# ${day}日目のチャット`);
+  todayPosts.forEach((post) => lines.push(_formatPostSimple(post)));
+  lines.push('');
+
+  lines.push(
+    `上記の${day}日目の出来事を含む「前日までのあらすじ」を200文字程度でまとめてください。` +
+    '翌日のゲームプレイヤーへのブリーフィングとして使用します。'
+  );
+
+  return lines.join('\n');
+}
+
+// ============================================================
+// バッチ会話生成AI (BatchConversationAI)
+// ============================================================
+
+const BATCH_CONVERSATION_SYSTEM_PROMPT =
+  '人狼ゲームの進行AIです。登場人物たちの会話を、指定されたJSON形式で生成してください。';
+
+const BATCH_VOTE_SYSTEM_PROMPT =
+  '人狼ゲームの進行AIです。投票フェーズにおける各キャラクターの投票先と発言を、指定されたJSON形式で生成してください。';
+
 // --- バッチ会話プロンプト ---
 
 /**
  * 昼フェーズの会話続きを生成するためのユーザープロンプトを構築します。
  * @param {object}   params
- * @param {string}   params.roomLevelPrompt  部屋レベルの補足指示
- * @param {Array}    params.alivePlayers     生存AIプレイヤー配列 [{name, role, personality}]
- * @param {Array}    params.publicPosts      公開チャット履歴（最新50件）
- * @param {Array}    params.wolfPosts        人狼チャット履歴
- * @param {string}   params.logicAiOutput    前回のロジックAI出力
- * @param {string}   params.targetNames      発言を生成するプレイヤー名（読点区切り）
+ * @param {string}   params.roomLevelLabel       部屋レベルのラベル（例: "初級者"）
+ * @param {string}   params.roomLevelPrompt      部屋レベルの補足指示
+ * @param {Array}    params.allPlayers           全生存プレイヤー配列 [{name, role, personality, firstPersonPronouns, speakingStyle}]
+ * @param {string}   params.previousDaysSynopsis 前日までのあらすじ
+ * @param {Array}    params.todayPosts           今日の公開チャット投稿配列
+ * @param {Array}    params.wolfPosts            今日の人狼チャット投稿配列
+ * @param {string}   params.targetNames          発言を生成するプレイヤー名（読点区切り）
+ * @param {number}   params.targetCount          生成する発言数の目安
  */
-function buildBatchConversationUserPrompt({ roomLevelPrompt, alivePlayers, publicPosts, wolfPosts, logicAiOutput, targetNames }) {
-  const lines = [];
-
-  lines.push('人狼ゲームのチャット履歴を見て会話の続きを生成してください。');
-  lines.push('');
-
-  if (roomLevelPrompt) {
-    lines.push('# 備考');
-    lines.push(roomLevelPrompt);
-    lines.push('');
-  }
-
-  lines.push('# 登場人物');
-  alivePlayers.forEach(({ name, role, personality }) => {
-    lines.push(`## ${name}`);
-    lines.push(`役職：${role?.name || '村人'}`);
-    if (personality) lines.push(`性格・スタイル：${personality}`);
+function buildBatchConversationUserPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, targetNames, targetCount }) {
+  return _buildChatPrompt({
+    roomLevelLabel,
+    roomLevelPrompt,
+    allPlayers,
+    previousDaysSynopsis,
+    todayPosts,
+    wolfPosts,
+    currentVotes: [],
+    targetCount: targetCount || 10,
+    targetNames,
   });
-  lines.push('');
-
-  lines.push('# チャット履歴');
-  publicPosts.forEach((post) => lines.push(_formatPost(post)));
-  lines.push('');
-
-  if (wolfPosts.length > 0) {
-    lines.push('# 人狼チャット履歴');
-    wolfPosts.forEach((post) => lines.push(_formatChatPostEntry(post)));
-    lines.push('');
-  }
-
-  if (logicAiOutput) {
-    lines.push('# 前回の状況整理');
-    lines.push(logicAiOutput);
-    lines.push('');
-  }
-
-  lines.push('# 生成対象プレイヤー');
-  lines.push(`以下のプレイヤーたちの発言を生成してください：${targetNames}`);
-  lines.push('目安として各プレイヤーが1〜2回発言するようにし、全員が最低1回は発言してください。');
-  lines.push('');
-
-  lines.push('# 出力形式');
-  lines.push('以下のJSON形式で出力してください：');
-  lines.push(JSON.stringify({
-    posts: [{ name: 'プレイヤー名', thinking: '内部思考（省略可）', talk: '発言内容', delay: 1.5 }],
-    summary: { chat: '現在の会話状況のまとめ', prediction: '各プレイヤーの役職予想' },
-  }, null, 2));
-  lines.push('delay はこの投稿を表示するまでの秒数（0.5〜4.0）です。会話の間合いや盛り上がりに合わせてAIが適宜決めてください。');
-  lines.push('posts の順番・件数（各プレイヤーの発言回数を含む）もAIが自由に決めてください。');
-
-  return lines.join('\n');
 }
 
 // --- 投票フェーズプロンプト ---
@@ -225,7 +209,7 @@ function buildBatchConversationUserPrompt({ roomLevelPrompt, alivePlayers, publi
  * @param {Array}    params.targetPlayers    投票するAIプレイヤー配列 [{name, role, personality}]
  * @param {string}   params.candidateNames   生存プレイヤー名（読点区切り、投票候補）
  * @param {Array}    params.publicPosts      公開チャット履歴（最新50件）
- * @param {string}   params.logicAiOutput    前回のロジックAI出力
+ * @param {string}   params.logicAiOutput    前回の状況整理テキスト
  */
 function buildBatchVoteUserPrompt({ roomLevelPrompt, targetPlayers, candidateNames, publicPosts, logicAiOutput }) {
   const lines = [];
@@ -243,7 +227,7 @@ function buildBatchVoteUserPrompt({ roomLevelPrompt, targetPlayers, candidateNam
   targetPlayers.forEach(({ name, role, personality }) => {
     lines.push(`## ${name}`);
     lines.push(`役職：${role?.name || '村人'}`);
-    if (personality) lines.push(`性格・スタイル：${personality}`);
+    if (personality) lines.push(`性格：${personality}`);
   });
   lines.push('');
 
@@ -252,7 +236,7 @@ function buildBatchVoteUserPrompt({ roomLevelPrompt, targetPlayers, candidateNam
   lines.push('');
 
   lines.push('# チャット履歴（議論の流れ）');
-  publicPosts.forEach((post) => lines.push(_formatPost(post)));
+  publicPosts.forEach((post) => lines.push(_formatPostSimple(post)));
   lines.push('');
 
   if (logicAiOutput) {
@@ -279,18 +263,37 @@ function buildBatchVoteUserPrompt({ roomLevelPrompt, targetPlayers, candidateNam
 /**
  * アドベンチャーモードでまとまった会話と投票変更を生成するためのユーザープロンプトを構築します。
  * @param {object}   params
- * @param {string}   params.roomLevelPrompt    部屋レベルの補足指示
- * @param {Array}    params.aiPlayersWithVotes  AIプレイヤー配列 [{name, role, personality, currentVote}]
- * @param {Array}    params.publicPosts         公開チャット履歴（最新50件）
- * @param {Array}    params.wolfPosts           人狼チャット履歴
- * @param {string}   params.logicAiOutput       前回のロジックAI出力
- * @param {Array}    params.currentVotes        現在の投票状況 [{voterName, targetName}]
- * @param {number}   params.targetCount         生成する発言数の目安
+ * @param {string}   params.roomLevelLabel       部屋レベルのラベル（例: "初級者"）
+ * @param {string}   params.roomLevelPrompt      部屋レベルの補足指示
+ * @param {Array}    params.allPlayers           全生存プレイヤー配列 [{name, role, personality, firstPersonPronouns, speakingStyle, currentVote}]
+ * @param {string}   params.previousDaysSynopsis 前日までのあらすじ
+ * @param {Array}    params.todayPosts           今日の公開チャット投稿配列
+ * @param {Array}    params.wolfPosts            今日の人狼チャット投稿配列
+ * @param {Array}    params.currentVotes         現在の投票状況 [{voterName, targetName}]
+ * @param {number}   params.targetCount          生成する発言数の目安
  */
-function buildAdventureUserPrompt({ roomLevelPrompt, aiPlayersWithVotes, publicPosts, wolfPosts, logicAiOutput, currentVotes, targetCount }) {
+function buildAdventureUserPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, currentVotes, targetCount }) {
+  return _buildChatPrompt({
+    roomLevelLabel,
+    roomLevelPrompt,
+    allPlayers,
+    previousDaysSynopsis,
+    todayPosts,
+    wolfPosts,
+    currentVotes,
+    targetCount,
+    targetNames: null,
+  });
+}
+
+/**
+ * 昼フェーズ共通のプロンプトビルダー（バッチ会話・アドベンチャー兼用）
+ */
+function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, currentVotes, targetCount, targetNames }) {
   const lines = [];
 
-  lines.push('人狼ゲームの続きの会話を生成してください。');
+  const roomPrefix = roomLevelLabel ? `${roomLevelLabel}による` : '';
+  lines.push(`${roomPrefix}人狼ゲームの今日のチャットの続き${targetCount}ポストを、必ずjson形式で出力してください。`);
   lines.push('');
 
   if (roomLevelPrompt) {
@@ -299,53 +302,67 @@ function buildAdventureUserPrompt({ roomLevelPrompt, aiPlayersWithVotes, publicP
     lines.push('');
   }
 
-  lines.push('# 登場人物');
-  aiPlayersWithVotes.forEach(({ name, role, personality, currentVote }) => {
+  lines.push('# 全プレイヤーの名前、役職、性格');
+  allPlayers.forEach(({ name, role, personality, firstPersonPronouns, speakingStyle, currentVote }) => {
     lines.push(`## ${name}`);
     lines.push(`役職：${role?.name || '村人'}`);
-    if (personality) lines.push(`性格・スタイル：${personality}`);
+    if (personality) lines.push(`性格：${personality}`);
+    if (firstPersonPronouns) lines.push(`一人称：${firstPersonPronouns}`);
+    if (speakingStyle) lines.push(`話し方：${speakingStyle}`);
     if (currentVote) lines.push(`現在の投票先：${currentVote}`);
   });
   lines.push('');
 
-  lines.push('# チャット履歴');
-  publicPosts.forEach((post) => lines.push(_formatPost(post)));
+  lines.push('# 前日までのあらすじ');
+  lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
 
-  if (wolfPosts.length > 0) {
-    lines.push('# 人狼チャット履歴');
-    wolfPosts.forEach((post) => lines.push(_formatChatPostEntry(post)));
+  lines.push('# 今日のチャット');
+  todayPosts.forEach((post) => lines.push(_formatPostSimple(post)));
+  lines.push('');
+
+  if (wolfPosts && wolfPosts.length > 0) {
+    lines.push('# 人狼チャット');
+    wolfPosts.forEach((post) => lines.push(_formatPostSimple(post)));
     lines.push('');
   }
 
-  if (logicAiOutput) {
-    lines.push('# 前回の状況整理');
-    lines.push(logicAiOutput);
-    lines.push('');
-  }
-
-  if (currentVotes.length > 0) {
+  if (currentVotes && currentVotes.length > 0) {
     lines.push('# 現在の投票状況');
     currentVotes.forEach(({ voterName, targetName }) => lines.push(`${voterName} → ${targetName}`));
     lines.push('');
   }
 
-  lines.push('# 指示');
-  lines.push(`上記の会話の続きを約${targetCount}発言生成してください。`);
-  lines.push('登場人物たちは自然に会話を続けます。');
-  lines.push('各キャラクターは任意のタイミングで投票先を決定・変更できます（vote フィールドを使用）。');
-  lines.push('各キャラクターは任意のタイミングで役職をCOできます（coRole フィールドを使用）。');
+  if (targetNames) {
+    lines.push('# 生成対象プレイヤー');
+    lines.push(`以下のプレイヤーたちの発言を生成してください：${targetNames}`);
+    lines.push('');
+  }
+
+  lines.push('# ポストの種類');
+  lines.push('## 発言');
+  lines.push('{ "name" : "プレイヤー名", "talk" : "発言内容" }');
+  lines.push('## カミングアウト');
+  lines.push('{ "name" : "プレイヤー名", "coRole" : "seer" }');
+  lines.push('## 行動（投票）');
+  lines.push('{ "name" : "プレイヤー名", "target" : "投票先プレイヤー名" }');
+  lines.push('');
+
+  lines.push('# 留意点');
+  lines.push('会議中いつでも投票、再投票できます。');
+  lines.push('生存者の過半数が投票したら会議は終了します。');
+  lines.push('必ずjson形式で出力してください。');
   lines.push('');
 
   lines.push('# 出力形式');
   lines.push('以下のJSON形式で出力してください：');
   lines.push(JSON.stringify({
-    posts: [{ name: 'プレイヤー名', talk: '発言内容', coRole: '役職ID（省略可）', vote: '投票先プレイヤー名（省略可）' }],
+    posts: [{ name: 'プレイヤー名', talk: '発言内容（省略可）', coRole: '役職ID（省略可）', target: '投票先プレイヤー名（省略可）', delay: 1.5 }],
     summary: { chat: '現在の会話状況のまとめ', prediction: '各プレイヤーの役職予想' },
   }, null, 2));
+  lines.push('delay はこの投稿を表示するまでの秒数（0.5〜4.0）です。会話の間合いや盛り上がりに合わせてAIが適宜決めてください。');
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
-  lines.push(`vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）`);
-  lines.push(`約${targetCount}発言になるよう生成してください。`);
+  lines.push('target は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
 
   return lines.join('\n');
 }

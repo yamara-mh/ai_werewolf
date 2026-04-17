@@ -151,8 +151,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // フォーム送信
   if (form) {
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
+
+      // PromptSheet.tsv からキャラクター情報を読み込む
+      await loadPersonalitiesFromTsv();
 
       const settings = {
         playerName: document.getElementById('player-name').value.trim() || 'あなた',
