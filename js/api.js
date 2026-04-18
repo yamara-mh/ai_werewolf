@@ -1,13 +1,26 @@
 // LLM API 通信
 // Gemini / OpenAI 互換 API への共通リクエスト関数
 
-async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
+const LLM_LOG_KEY = 'ai_werewolf_llm_log';
+const LLM_LOG_MAX = 200;
+
+function _appendLlmLog(model, userPrompt, response) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(LLM_LOG_KEY) || '[]');
+    existing.push({ timestamp: new Date().toISOString(), model, userPrompt, response });
+    if (existing.length > LLM_LOG_MAX) existing.splice(0, existing.length - LLM_LOG_MAX);
+    localStorage.setItem(LLM_LOG_KEY, JSON.stringify(existing));
+  } catch (e) {
+    // ストレージ容量不足などは無視
+  }
+}
+
+async function callAI(userPrompt, apiKey, model, options = {}) {
   const { jsonMode = false, maxTokens = 1600, reasoningEffort = 'medium' } = options;
   const validReasoningEffort = ['low', 'medium', 'high'].includes(reasoningEffort)
     ? reasoningEffort
     : 'medium';
 
-  console.log('[LLM Input] System Prompt:\n', systemPrompt);
   console.log('[LLM Input] User Prompt:\n', userPrompt);
 
   if (model.startsWith('gemini-')) {
@@ -23,7 +36,7 @@ async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
           contents: [
             {
               role: 'user',
-              parts: [{ text: `System:\n${systemPrompt}\n\nUser:\n${userPrompt}` }],
+              parts: [{ text: userPrompt }],
             },
           ],
           generationConfig,
@@ -39,13 +52,13 @@ async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
     const data = await res.json();
     const geminiResult = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('\n').trim() || '';
     console.log('[LLM Output]:\n', geminiResult);
+    _appendLlmLog(model, userPrompt, geminiResult);
     return geminiResult;
   }
 
   const openAiBody = {
     model: model || 'gpt-5.4-mini',
     messages: [
-      { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
     max_tokens: maxTokens,
@@ -71,5 +84,6 @@ async function callAI(systemPrompt, userPrompt, apiKey, model, options = {}) {
   const data = await res.json();
   const openAiResult = data.choices?.[0]?.message?.content?.trim() || '';
   console.log('[LLM Output]:\n', openAiResult);
+  _appendLlmLog(model, userPrompt, openAiResult);
   return openAiResult;
 }

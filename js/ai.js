@@ -13,15 +13,14 @@ class AIPlayer {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
 
-    const systemPrompt = this._buildSystemPrompt(aiPlayer);
-    const userPrompt = this._buildSpeechPrompt(aiPlayer);
-
     if (!aiApiKey) {
       return this._fallbackSpeech(aiPlayer);
     }
 
+    const prompt = this._buildSystemPrompt(aiPlayer) + '\n\n' + this._buildSpeechPrompt(aiPlayer);
+
     try {
-      const response = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, { reasoningEffort });
+      const response = await callAI(prompt, aiApiKey, aiModel, { reasoningEffort });
       return response;
     } catch (e) {
       console.warn(`AI発言生成エラー (${aiPlayer.name}):`, e);
@@ -39,11 +38,10 @@ class AIPlayer {
       return this._fallbackVote(aiPlayer, alivePlayers);
     }
 
-    const systemPrompt = this._buildSystemPrompt(aiPlayer);
-    const userPrompt = this._buildVotePrompt(aiPlayer, alivePlayers);
+    const prompt = this._buildSystemPrompt(aiPlayer) + '\n\n' + this._buildVotePrompt(aiPlayer, alivePlayers);
 
     try {
-      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, { reasoningEffort });
+      const responseText = await callAI(prompt, aiApiKey, aiModel, { reasoningEffort });
       const target = this._parseVoteTarget(responseText, alivePlayers);
       return target || this._fallbackVote(aiPlayer, alivePlayers);
     } catch (e) {
@@ -65,11 +63,10 @@ class AIPlayer {
       return this._fallbackNightAction(aiPlayer, alivePlayers);
     }
 
-    const systemPrompt = this._buildSystemPrompt(aiPlayer);
-    const userPrompt = this._buildNightActionPrompt(aiPlayer, alivePlayers);
+    const prompt = this._buildSystemPrompt(aiPlayer) + '\n\n' + this._buildNightActionPrompt(aiPlayer, alivePlayers);
 
     try {
-      const responseText = await callAI(systemPrompt, userPrompt, aiApiKey, aiModel, { reasoningEffort });
+      const responseText = await callAI(prompt, aiApiKey, aiModel, { reasoningEffort });
       const target = this._parseVoteTarget(responseText, alivePlayers);
       return target || this._fallbackNightAction(aiPlayer, alivePlayers);
     } catch (e) {
@@ -210,7 +207,7 @@ class BatchConversationAI {
   }
 
   // targetPlayers: 発言を生成するAIプレイヤーの配列
-  // 戻り値: { posts: [{name, thinking, talk}], summary: {chat, prediction} | null }
+  // 戻り値: { posts: [{name, thinking, talk}] }
   async generate(targetPlayers) {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
@@ -222,7 +219,7 @@ class BatchConversationAI {
     const userPrompt = this._buildPrompt(targetPlayers);
 
     try {
-      const responseText = await callAI(BATCH_CONVERSATION_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
+      const responseText = await callAI(userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
         maxTokens: 6000,
         reasoningEffort,
@@ -287,10 +284,7 @@ class BatchConversationAI {
 
       if (validPosts.length === 0) throw new Error('有効な投稿がありません');
 
-      return {
-        posts: validPosts,
-        summary: data.summary && typeof data.summary === 'object' ? data.summary : null,
-      };
+      return { posts: validPosts };
     } catch (e) {
       console.warn('バッチ会話JSONパースエラー:', e, responseText);
       return this._fallback(targetPlayers);
@@ -415,112 +409,6 @@ class BatchConversationAI {
     return -1;
   }
 
-  // 投票フェーズ：AIプレイヤー全員の投票先・発言を一括生成
-  // 戻り値: { votes: [{name, thinking, vote, talk, delay}] }
-  async generateVotes(targetPlayers) {
-    const gs = this.gameState;
-    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
-
-    if (!aiApiKey || targetPlayers.length === 0) {
-      return this._fallbackVotes(targetPlayers);
-    }
-
-    const userPrompt = this._buildVotePrompt(targetPlayers);
-
-    try {
-      const responseText = await callAI(BATCH_VOTE_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
-        jsonMode: true,
-        maxTokens: 6000,
-        reasoningEffort,
-      });
-      return this._parseVoteResponse(responseText, targetPlayers);
-    } catch (e) {
-      console.warn('バッチ投票生成エラー:', e);
-      return this._fallbackVotes(targetPlayers);
-    }
-  }
-
-  _buildVotePrompt(targetPlayers) {
-    const gs = this.gameState;
-    const roomLevel = gs.settings.roomLevel || 'intermediate';
-    const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
-    const publicPosts = gs.getTodayPosts();
-    const candidateNames = gs.getAlivePlayers().map((p) => p.name).join('、');
-    const targetPlayersData = targetPlayers.map((p) => ({ name: p.name, role: p.role, personality: p.personality }));
-    return buildBatchVoteUserPrompt({
-      roomLevelPrompt,
-      targetPlayers: targetPlayersData,
-      candidateNames,
-      publicPosts,
-      logicAiOutput: gs.logicAiOutput,
-    });
-  }
-
-  _parseVoteResponse(responseText, targetPlayers) {
-    try {
-      const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-      let jsonStr = codeBlockMatch ? codeBlockMatch[1].trim() : responseText.trim();
-
-      let start = jsonStr.indexOf('{');
-      let end = jsonStr.lastIndexOf('}');
-
-      const data = JSON.parse(jsonStr.slice(start, end + 1));
-      if (!Array.isArray(data.votes)) throw new Error('votesが配列ではありません');
-
-      const gs = this.gameState;
-      const aliveNames = new Set(gs.getAlivePlayers().map((p) => p.name));
-      const validNames = new Set(targetPlayers.map((p) => p.name));
-
-      const validVotes = data.votes.filter(
-        (v) =>
-          v &&
-          typeof v.name === 'string' &&
-          validNames.has(v.name) &&
-          typeof v.vote === 'string' &&
-          aliveNames.has(v.vote) &&
-          v.name !== v.vote &&
-          typeof v.talk === 'string' &&
-          v.talk.trim()
-      ).map((v) => ({
-        name: v.name,
-        thinking: v.thinking || null,
-        vote: v.vote,
-        talk: v.talk,
-      }));
-
-      if (validVotes.length === 0) throw new Error('有効な投票データがありません');
-
-      return { votes: validVotes };
-    } catch (e) {
-      console.warn('バッチ投票JSONパースエラー:', e, responseText);
-      return this._fallbackVotes(targetPlayers);
-    }
-  }
-
-  _fallbackVotes(targetPlayers) {
-    const gs = this.gameState;
-    return {
-      votes: targetPlayers.map((player) => {
-        const candidates = gs.getAlivePlayers().filter((p) => p.id !== player.id);
-        if (candidates.length === 0) {
-          return { name: player.name, thinking: null, vote: null, talk: '' };
-        }
-        let target = null;
-        if (isWerewolfRole(player.role)) {
-          target = candidates.find((p) => p.role?.team === TEAMS.VILLAGE) || candidates[0];
-        } else {
-          target = candidates[Math.floor(Math.random() * candidates.length)];
-        }
-        return {
-          name: player.name,
-          thinking: null,
-          vote: target ? target.name : null,
-          talk: target ? `${target.name} に投票します。` : '',
-        };
-      }),
-    };
-  }
-
   _fallback(targetPlayers) {
     const speeches = [
       'う〜ん、誰が怪しいかな…',
@@ -535,12 +423,11 @@ class BatchConversationAI {
         thinking: null,
         talk: speeches[Math.floor(Math.random() * speeches.length)],
       })),
-      summary: null,
     };
   }
 
   // アドベンチャーモード用：全AIプレイヤーの会話を一括生成
-  // CO・投票先変更も含む。戻り値: { posts: [{name, talk, coRole, vote}], summary }
+  // CO・投票先変更も含む。戻り値: { posts: [{name, talk, coRole, vote}] }
   async generateAdventure(targetCount = 10) {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
@@ -553,7 +440,7 @@ class BatchConversationAI {
     const userPrompt = this._buildAdventurePrompt(aiPlayers, targetCount);
 
     try {
-      const responseText = await callAI(BATCH_CONVERSATION_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
+      const responseText = await callAI(userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
         maxTokens: 8000,
         reasoningEffort,
@@ -635,10 +522,7 @@ class BatchConversationAI {
 
       if (validPosts.length === 0) throw new Error('有効な投稿がありません');
 
-      return {
-        posts: validPosts,
-        summary: data.summary && typeof data.summary === 'object' ? data.summary : null,
-      };
+      return { posts: validPosts };
     } catch (e) {
       console.warn('アドベンチャー会話JSONパースエラー:', e, responseText);
       return this._fallbackAdventure(aiPlayers, 5);
@@ -646,26 +530,26 @@ class BatchConversationAI {
   }
 
   // 夜ターン: 今日のチャットを「前日までのあらすじ」としてまとめる
-  // 戻り値: あらすじ文字列（失敗時は既存の logicAiOutput または空文字）
+  // 戻り値: あらすじ文字列（失敗時は既存の previousDaysSynopsis または空文字）
   async generateSynopsis() {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
     const todayPosts = gs.getTodayPosts();
 
     if (!aiApiKey || todayPosts.length === 0) {
-      return gs.logicAiOutput || gs.previousDaysSynopsis || '';
+      return gs.previousDaysSynopsis || '';
     }
 
     const userPrompt = buildSynopsisUserPrompt(gs.day, gs.previousDaysSynopsis, todayPosts);
 
     try {
-      return await callAI(SYNOPSIS_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
+      return await callAI(userPrompt, aiApiKey, aiModel, {
         maxTokens: 500,
         reasoningEffort,
       });
     } catch (e) {
       console.warn('あらすじ生成エラー:', e);
-      return gs.logicAiOutput || gs.previousDaysSynopsis || '';
+      return gs.previousDaysSynopsis || '';
     }
   }
 
@@ -686,7 +570,6 @@ class BatchConversationAI {
         coRole: null,
         vote: null,
       })),
-      summary: null,
     };
   }
 }
