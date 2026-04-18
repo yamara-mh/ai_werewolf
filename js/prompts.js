@@ -305,7 +305,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   allPlayers.forEach(({ name, role, isHuman, personality, firstPersonPronouns, speakingStyle, currentVote }) => {
     lines.push(`## ${name}`);
     if (isHuman) {
-      lines.push('役職：村人');
+      lines.push(`役職：${role?.name || '村人'}`);
       lines.push('この人物のセリフは私が担当します。絶対に発言を生成しないでください。');
     } else {
       lines.push(`役職：${role?.name || '村人'}`);

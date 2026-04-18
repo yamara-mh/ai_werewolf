@@ -224,7 +224,7 @@ class BatchConversationAI {
     try {
       const responseText = await callAI(BATCH_CONVERSATION_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 1500,
+        maxTokens: 6000,
         reasoningEffort,
       });
       return this._parseResponse(responseText, targetPlayers);
@@ -373,27 +373,6 @@ class BatchConversationAI {
       }
     }
 
-    // 先頭または末尾の中括弧が欠落しているケースへの対応
-    const trimmed = text.trim();
-    if (trimmed) {
-      // 先頭の { がない場合、{ ... } で包んでみる
-      if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
-        try { return parseMaybeNestedJson(`{${trimmed}}`); } catch (_) { /* ignore */ }
-      }
-      // 末尾の } がない場合（先頭の { はある）
-      if (trimmed.startsWith('{') && !trimmed.endsWith('}')) {
-        try { return parseMaybeNestedJson(`${trimmed}}`); } catch (_) { /* ignore */ }
-      }
-      // 先頭の [ がない場合
-      if (!trimmed.startsWith('[') && !trimmed.startsWith('{')) {
-        try { return parseMaybeNestedJson(`[${trimmed}]`); } catch (_) { /* ignore */ }
-      }
-      // 末尾の ] がない場合（先頭の [ はある）
-      if (trimmed.startsWith('[') && !trimmed.endsWith(']')) {
-        try { return parseMaybeNestedJson(`${trimmed}]`); } catch (_) { /* ignore */ }
-      }
-    }
-
     return null;
   }
 
@@ -451,7 +430,7 @@ class BatchConversationAI {
     try {
       const responseText = await callAI(BATCH_VOTE_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 1500,
+        maxTokens: 6000,
         reasoningEffort,
       });
       return this._parseVoteResponse(responseText, targetPlayers);
@@ -484,18 +463,6 @@ class BatchConversationAI {
 
       let start = jsonStr.indexOf('{');
       let end = jsonStr.lastIndexOf('}');
-      // 先頭または末尾の中括弧が欠落しているケースへの対応
-      if (start === -1 && end === -1) {
-        jsonStr = `{${jsonStr}}`;
-        start = 0;
-        end = jsonStr.length - 1;
-      } else if (start === -1) {
-        jsonStr = `{${jsonStr}`;
-        start = 0;
-      } else if (end === -1) {
-        jsonStr = `${jsonStr}}`;
-        end = jsonStr.length - 1;
-      }
 
       const data = JSON.parse(jsonStr.slice(start, end + 1));
       if (!Array.isArray(data.votes)) throw new Error('votesが配列ではありません');
@@ -588,7 +555,7 @@ class BatchConversationAI {
     try {
       const responseText = await callAI(BATCH_CONVERSATION_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 3000,
+        maxTokens: 12000,
         reasoningEffort,
       });
       return this._parseAdventureResponse(responseText, aiPlayers);
