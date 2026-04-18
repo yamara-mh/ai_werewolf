@@ -541,7 +541,7 @@ class BatchConversationAI {
 
   // アドベンチャーモード用：全AIプレイヤーの会話を一括生成
   // CO・投票先変更も含む。戻り値: { posts: [{name, talk, coRole, vote}], summary }
-  async generateAdventure(targetCount = 30) {
+  async generateAdventure(targetCount = 10) {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
     const aiPlayers = gs.getAlivePlayers().filter((p) => !p.isHuman);
@@ -555,7 +555,7 @@ class BatchConversationAI {
     try {
       const responseText = await callAI(BATCH_CONVERSATION_SYSTEM_PROMPT, userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 12000,
+        maxTokens: 8000,
         reasoningEffort,
       });
       return this._parseAdventureResponse(responseText, aiPlayers);

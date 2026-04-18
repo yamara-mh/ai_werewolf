@@ -24,9 +24,7 @@ function buildAiPlayerSystemPrompt(name, personality, role, isWolf, teammates, r
   ];
   if (isWolf && teammates) lines.push(`仲間の人狼: ${teammates}`);
   if (roomLevelPrompt) lines.push(roomLevelPrompt);
-  lines.push('ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く（1〜3文）発言してください。');
-  lines.push('役職は絶対に明かさないでください（占い師が公開する場合を除く）。');
-  lines.push('ゲームを楽しく盛り上げるよう心がけてください。');
+  lines.push('ゲームの現在の状況に基づいて、あなたのキャラクターとして自然な日本語で短く発言してください。');
   return lines.join('\n');
 }
 
@@ -155,8 +153,8 @@ function buildSynopsisUserPrompt(day, previousSynopsis, todayPosts) {
   lines.push('');
 
   lines.push(
-    `上記の${day}日目の出来事を含む「前日までのあらすじ」を200文字程度でまとめてください。` +
-    '翌日のゲームプレイヤーへのブリーフィングとして使用します。'
+    `上記の${day}日目の出来事を含む「前日までのあらすじ」を$500文字程度でまとめてください。` +
+    '推理の判断材料に利用します。'
   );
 
   return lines.join('\n');
@@ -343,29 +341,20 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
     lines.push('');
   }
 
-  lines.push('# ポストの種類');
-  lines.push('## 発言');
-  lines.push('{ "name" : "プレイヤー名", "talk" : "発言内容" }');
-  lines.push('## カミングアウト');
-  lines.push('{ "name" : "プレイヤー名", "coRole" : "seer" }');
-  lines.push('## 行動（投票／占い／防衛／襲撃）');
-  lines.push('{ "name" : "プレイヤー名", "target" : "投票先プレイヤー名" }');
-  lines.push('');
-
   lines.push('# 留意点');
   lines.push('会議中いつでも投票、再投票できます。');
-  lines.push('生存者の過半数が投票したら会議は終了します。');
-  lines.push('必ずjson形式で出力してください。');
+  lines.push('全員が投票したら会議は終了します。');
   lines.push('');
 
   lines.push('# 出力形式');
   lines.push('以下のJSON形式で出力してください：');
   lines.push(JSON.stringify({
-    posts: [{ name: 'プレイヤー名', talk: '発言内容（省略可）', coRole: '役職ID（省略可）', target: '投票先プレイヤー名（省略可）' }],
+    posts: [{ name: 'プレイヤー名', talk: '発言内容（省略可）', coRole: 'カミングアウトする役職ID（省略可）', villager: '白だしするプレイヤー名（省略可）', werewolf: '黒だしするプレイヤー名（省略可）', [プレイヤー名]: '[陣営名]' , vote: '投票先プレイヤー名（省略可）' }],
     summary: { chat: '現在の会話状況のまとめ', prediction: '各プレイヤーの役職予想' },
   }, null, 2));
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
-  lines.push('target は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
+  lines.push('[プレイヤー名] は役職の能力で誰かの陣営を特定した際、会議で周知する目的で使用する（省略可）。[陣営名] には villager, werewolf, fox のいずれかが入る');
+  lines.push('vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
 
   return lines.join('\n');
 }
