@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (logicAiBtn) {
     logicAiBtn.addEventListener('click', () => {
       if (logicAiContent) {
-        logicAiContent.textContent = gs.logicAiOutput || '（まだ分析が実行されていません）';
+        logicAiContent.textContent = gs.previousDaysSynopsis || '（まだ分析が実行されていません）';
       }
       if (logicAiModal) logicAiModal.classList.remove('hidden');
     });
@@ -234,33 +234,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  if (coRoleSelect) {
-    coRoleSelect.addEventListener('change', async () => {
-      const coRoleId = coRoleSelect.value;
-      if (!coRoleId) return;
-      const roleObj = roleById[coRoleId];
-      const roleName = roleObj?.name || '不明な役職';
-      const ok = window.confirm(`${roleName}でCOしますか？`);
-      if (!ok) {
-        coRoleSelect.value = '';
-        return;
-      }
-      if (humanPlayer) {
-        humanPlayer.coRole = coRoleId;
-      }
-      const post = gs.addPost({
-        playerName: humanPlayer.name,
-        playerId: humanPlayer.id,
-        content: `${roleName}CO`,
-        coRole: humanPlayer.coRole,
-      });
-      bbs.renderPost(post);
-      renderPlayers();
-      gs.save();
-      coRoleSelect.value = '';
-    });
-  }
-
   // --- 永続チャットフォームのイベント設定 ---
   if (chatForm) {
     chatForm.addEventListener('submit', async (e) => {
@@ -269,15 +242,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       const text = chatInput ? chatInput.value.trim() : '';
       if (!text) return;
 
+      const selectedCoRole = coRoleSelect ? coRoleSelect.value : '';
+      if (selectedCoRole && humanPlayer) {
+        humanPlayer.coRole = selectedCoRole;
+      }
+
       const post = gs.addPost({
         playerName: humanPlayer.name,
         playerId: humanPlayer.id,
         content: text,
         type: wolfChatModeEnabled ? 'wolf_chat' : 'speech',
-        coRole: humanPlayer.coRole,
+        coRole: selectedCoRole || null,
       });
       bbs.renderPost(post);
       if (chatInput) chatInput.value = '';
+      if (coRoleSelect) coRoleSelect.value = '';
       // ドラフトもリセット
       if (wolfChatModeEnabled) wolfChatDraft = '';
       else normalChatDraft = '';
@@ -543,7 +522,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     batchConversationAI.generateSynopsis().then((synopsis) => {
       if (synopsis) {
         gs.previousDaysSynopsis = synopsis;
-        gs.logicAiOutput = synopsis;
         gs.save();
       }
     }).catch((e) => console.warn('あらすじ更新エラー:', e));
@@ -733,8 +711,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       voteBtn.disabled = uiLocked;
       const currentVoteTarget = selectedVoteTargetId ? gs.getPlayer(selectedVoteTargetId) : null;
       voteBtn.textContent = currentVoteTarget
-        ? `🗳️ ${currentVoteTarget.name}に投票中`
-        : '🗳️ 投票先を選ぶ';
+        ? `${currentVoteTarget.name}に投票`
+        : '投票';
       voteBtn.addEventListener('click', () => showVoteModal());
       chatTopActions.appendChild(voteBtn);
     }
@@ -742,9 +720,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (gs.phase === GAME_PHASES.NIGHT && humanPlayer.isAlive) {
       const humanRole = humanPlayer.role;
       let btnLabel = '';
-      if (isWerewolfRole(humanRole)) btnLabel = '🐺 襲撃先を選ぶ';
-      else if (humanRole?.id === ROLES.SEER.id) btnLabel = '🔮 占い先を選ぶ';
-      else if (humanRole?.id === ROLES.HUNTER.id) btnLabel = '🛡️ 防衛先を選ぶ';
+      if (isWerewolfRole(humanRole)) btnLabel = '襲撃';
+      else if (humanRole?.id === ROLES.SEER.id) btnLabel = '占う';
+      else if (humanRole?.id === ROLES.HUNTER.id) btnLabel = '守る';
 
       if (btnLabel) {
         const nightBtn = document.createElement('button');
@@ -899,16 +877,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const result = await batchConversationAI.generateAdventure(count);
       conversationBuffer.push(...result.posts);
-      if (result.summary) {
-        const { chat, prediction } = result.summary;
-        const parts = [];
-        if (chat) parts.push(`【状況まとめ】${chat}`);
-        if (prediction) parts.push(`【役職予想】${prediction}`);
-        if (parts.length > 0) {
-          gs.logicAiOutput = parts.join('\n');
-          gs.save();
-        }
-      }
     } finally {
       bufferGenerating = false;
       renderChatTopActions();

@@ -130,9 +130,6 @@ function _formatPost(post) {
 // あらすじ生成プロンプト (Synopsis)
 // ============================================================
 
-const SYNOPSIS_SYSTEM_PROMPT =
-  '人狼ゲームのこれまでの出来事を簡潔にまとめてください。日本語でテキストのみ出力してください。';
-
 /**
  * 夜ターンに「前日までのあらすじ」を生成するためのユーザープロンプトを構築します。
  * @param {number} day             まとめる対象の日
@@ -141,6 +138,9 @@ const SYNOPSIS_SYSTEM_PROMPT =
  */
 function buildSynopsisUserPrompt(day, previousSynopsis, todayPosts) {
   const lines = [];
+
+  lines.push('人狼ゲームのこれまでの出来事を簡潔にまとめてください。日本語でテキストのみ出力してください。');
+  lines.push('');
 
   if (previousSynopsis) {
     lines.push('# これまでのあらすじ');
@@ -153,7 +153,7 @@ function buildSynopsisUserPrompt(day, previousSynopsis, todayPosts) {
   lines.push('');
 
   lines.push(
-    `上記の${day}日目の出来事を含む「前日までのあらすじ」を$500文字程度でまとめてください。` +
+    `上記の${day}日目の出来事を含む「前日までのあらすじ」を500文字程度でまとめてください。` +
     '推理の判断材料に利用します。'
   );
 
@@ -163,12 +163,6 @@ function buildSynopsisUserPrompt(day, previousSynopsis, todayPosts) {
 // ============================================================
 // バッチ会話生成AI (BatchConversationAI)
 // ============================================================
-
-const BATCH_CONVERSATION_SYSTEM_PROMPT =
-  '人狼ゲームの進行AIです。登場人物たちの会話を、指定されたJSON形式で生成してください。';
-
-const BATCH_VOTE_SYSTEM_PROMPT =
-  '人狼ゲームの進行AIです。投票フェーズにおける各キャラクターの投票先と発言を、指定されたJSON形式で生成してください。';
 
 // --- バッチ会話プロンプト ---
 
@@ -196,63 +190,6 @@ function buildBatchConversationUserPrompt({ roomLevelLabel, roomLevelPrompt, all
     targetCount: targetCount || 10,
     targetNames,
   });
-}
-
-// --- 投票フェーズプロンプト ---
-
-/**
- * 投票フェーズでAI全員の投票先と発言を生成するためのユーザープロンプトを構築します。
- * @param {object}   params
- * @param {string}   params.roomLevelPrompt  部屋レベルの補足指示
- * @param {Array}    params.targetPlayers    投票するAIプレイヤー配列 [{name, role, personality}]
- * @param {string}   params.candidateNames   生存プレイヤー名（読点区切り、投票候補）
- * @param {Array}    params.publicPosts      公開チャット履歴（最新50件）
- * @param {string}   params.logicAiOutput    前回の状況整理テキスト
- */
-function buildBatchVoteUserPrompt({ roomLevelPrompt, targetPlayers, candidateNames, publicPosts, logicAiOutput }) {
-  const lines = [];
-
-  lines.push('投票フェーズです。各キャラクターが誰に投票するかを決め、投票宣言の発言を生成してください。');
-  lines.push('');
-
-  if (roomLevelPrompt) {
-    lines.push('# 備考');
-    lines.push(roomLevelPrompt);
-    lines.push('');
-  }
-
-  lines.push('# 登場人物（投票権あり）');
-  targetPlayers.forEach(({ name, role, personality }) => {
-    lines.push(`## ${name}`);
-    lines.push(`役職：${role?.name || '村人'}`);
-    if (personality) lines.push(`性格：${personality}`);
-  });
-  lines.push('');
-
-  lines.push('# 投票候補（生存プレイヤー）');
-  lines.push(candidateNames);
-  lines.push('');
-
-  lines.push('# チャット履歴（議論の流れ）');
-  publicPosts.forEach((post) => lines.push(_formatPostSimple(post)));
-  lines.push('');
-
-  if (logicAiOutput) {
-    lines.push('# 前回の状況整理');
-    lines.push(logicAiOutput);
-    lines.push('');
-  }
-
-  lines.push('# 出力形式');
-  lines.push('以下のJSON形式で出力してください：');
-  lines.push(JSON.stringify({
-    votes: [{ name: 'プレイヤー名', thinking: '投票理由（内部思考）', vote: '投票先プレイヤー名', talk: '投票宣言の発言' }],
-  }, null, 2));
-  lines.push('vote は投票候補の中から必ず一人を選んでください（自分自身は不可）。');
-  lines.push('talk は「○○に投票します」のような投票宣言の発言です。');
-  lines.push('全員が必ず一票を投じてください。');
-
-  return lines.join('\n');
 }
 
 // --- アドベンチャーモードプロンプト ---
@@ -349,11 +286,10 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   lines.push('# 出力形式');
   lines.push('以下のJSON形式で出力してください：');
   lines.push(JSON.stringify({
-    posts: [{ name: 'プレイヤー名', talk: '発言内容（省略可）', coRole: 'カミングアウトする役職ID（省略可）', villager: '白だしするプレイヤー名（省略可）', werewolf: '黒だしするプレイヤー名（省略可）', [プレイヤー名]: '[陣営名]' , vote: '投票先プレイヤー名（省略可）' }],
-    summary: { chat: '現在の会話状況のまとめ', prediction: '各プレイヤーの役職予想' },
+    posts: [{ name: 'プレイヤー名', talk: '発言内容（省略可）', coRole: 'カミングアウトする役職ID（省略可）', villager: [{ name: '白だしするプレイヤー名（省略可）' }], werewolf: ['黒だしするプレイヤー名（省略可）'], vote: '投票先プレイヤー名（省略可）' }],
   }, null, 2));
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
-  lines.push('[プレイヤー名] は役職の能力で誰かの陣営を特定した際、会議で周知する目的で使用する（省略可）。[陣営名] には villager, werewolf, fox のいずれかが入る');
+  lines.push('villager は白だしするプレイヤーの配列（省略可）、werewolf は黒だしするプレイヤー名の配列（省略可）');
   lines.push('vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
 
   return lines.join('\n');
