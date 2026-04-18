@@ -127,7 +127,7 @@ h1, h2, h3 { line-height: 1.3; }
   border-radius: var(--radius);
   color: var(--text);
   padding: 8px 12px;
-  font-size: 0.9rem;
+  font-size: 16px;
   font-family: var(--font-main);
   transition: border-color 0.2s;
 }
@@ -461,7 +461,7 @@ h1, h2, h3 { line-height: 1.3; }
 
 .co-role-select {
   width: auto;
-  font-size: 0.8rem;
+  font-size: 16px;
   padding: 4px 8px;
 }
 
@@ -473,7 +473,7 @@ h1, h2, h3 { line-height: 1.3; }
   color: var(--text);
   padding: 6px 10px;
   font-family: var(--font-main);
-  font-size: 0.9rem;
+  font-size: 16px;
   resize: none;
 }
 
@@ -735,6 +735,21 @@ h1, h2, h3 { line-height: 1.3; }
     height: 56px;
   }
 
+  .player-card .player-name-icon {
+    display: none;
+  }
+
+  .player-card__role-overlay {
+    display: block;
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    font-size: 1rem;
+    line-height: 1;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+    pointer-events: none;
+  }
+
   .bbs-area {
     border-right: none;
   }
@@ -891,6 +906,11 @@ h1, h2, h3 { line-height: 1.3; }
   padding: 2px 0;
   border-radius: 0 0 4px 4px;
   pointer-events: none;
+}
+
+/* ===== プレイヤーカード役職絵文字オーバーレイ ===== */
+.player-card__role-overlay {
+  display: none;
 }
 
 /* ===== CO役職ごとのプレイヤー名カラー ===== */

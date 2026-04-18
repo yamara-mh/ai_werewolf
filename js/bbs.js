@@ -335,6 +335,8 @@ function renderPlayerList(players, options = {}) {
     const portraitSrc = `personality/portrait/${escapeHtml(player.name)}.png`;
     const isAlly = italicPlayerIds.has(player.id);
     const nameHtml = buildPlayerNameHtml(player.name, { coRole: player.coRole, isAlly });
+    const roleObjForOverlay = (player.coRole ? ROLE_BY_ID[player.coRole] : null) || ROLES.VILLAGER;
+    const overlayRoleIcon = roleObjForOverlay?.icon || ROLES.VILLAGER.icon;
 
     if (humanClass) el.classList.add(humanClass);
 
@@ -342,6 +344,7 @@ function renderPlayerList(players, options = {}) {
       <span class="player-card__name">
         <span class="player-portrait-wrapper">
           <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
+          <span class="player-card__role-overlay">${overlayRoleIcon}</span>
           ${deadLabel}
         </span>
         ${nameHtml}
