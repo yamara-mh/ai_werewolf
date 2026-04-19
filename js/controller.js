@@ -287,6 +287,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- 初期描画 ---
   renderPlayers();
+  // ゲームロード時にプレイヤーの占い結果をBBSに反映する
+  const initialVerdicts = {};
+  gs.players.forEach((p) => {
+    if (p.seerVerdict) initialVerdicts[p.id] = p.seerVerdict;
+  });
+  bbs.setSeerVerdicts(initialVerdicts);
   bbs.renderAll(gs.bbsLog);
   updateHeader();
 
@@ -572,6 +578,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       gs.addSystemPost(
         `【占い結果】${getPlayerDisplayText(target)} は${isWerewolf ? '🐺 人狼' : '✅ 人狼ではない'}です。`
       );
+      const verdict = isWerewolf ? 'black' : 'white';
+      target.seerVerdict = verdict;
+      bbs.updatePlayerVerdict(target.id, verdict);
     }
 
     renderPlayers();
@@ -646,6 +655,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- ユーティリティ ---
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // 占い結果（白だし・黒だし）をプレイヤーに適用し、BBSに反映する
+  function applyVerdicts(names, verdict) {
+    if (!Array.isArray(names) || names.length === 0) return;
+    names.forEach((name) => {
+      const target = gs.players.find((p) => p.name === name);
+      if (target) {
+        target.seerVerdict = verdict;
+        bbs.updatePlayerVerdict(target.id, verdict);
+      }
+    });
   }
 
   function updateBbsContainerStyle() {
@@ -918,6 +939,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn(`revealNextPost: 無効な coRole "${postData.coRole}" (${player.name})`);
       }
     }
+
+    // 占い結果（白だし・黒だし）適用
+    applyVerdicts(postData.verdictWhite, 'white');
+    applyVerdicts(postData.verdictBlack, 'black');
 
     // 投票先変更適用
     if (postData.vote) {

@@ -1,6 +1,17 @@
 // 有効なポートレートステータス
 const VALID_PORTRAIT_STATUSES = new Set(['default', 'laugh', 'serious', 'worry', 'doubt', 'panic', 'anger', 'sad']);
 
+// villager/werewolf フィールドのプレイヤー名配列を正規化するヘルパー
+// 配列要素が文字列または {name: string} オブジェクトの両方に対応し、生存プレイヤー名のみを返す
+function _normalizeVerdictNames(arr, aliveNames) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((item) => {
+    if (typeof item === 'string') return item;
+    if (item && typeof item === 'object' && typeof item.name === 'string') return item.name;
+    return null;
+  }).filter((name) => name && aliveNames.has(name));
+}
+
 // AI プレイヤーロジック
 // callAI は api.js、プロンプト構築は prompts.js で定義されています
 
@@ -516,12 +527,17 @@ class BatchConversationAI {
         // target フィールド（新形式）と vote フィールド（旧形式）の両方に対応
         const voteValue = post.target || post.vote;
         const statusValue = (typeof post.status === 'string' && VALID_PORTRAIT_STATUSES.has(post.status)) ? post.status : 'default';
+        // villager（白だし）と werewolf（黒だし）のプレイヤー名配列を正規化
+        const verdictWhite = _normalizeVerdictNames(post.villager, aliveNames);
+        const verdictBlack = _normalizeVerdictNames(post.werewolf, aliveNames);
         return {
           name: post.name,
           talk: (typeof post.talk === 'string') ? post.talk : '',
           coRole: (typeof post.coRole === 'string' && post.coRole.trim()) ? post.coRole.trim() : null,
           vote: (typeof voteValue === 'string' && aliveNames.has(voteValue) && voteValue !== post.name) ? voteValue : null,
           status: statusValue,
+          verdictWhite,
+          verdictBlack,
         };
       });
 
