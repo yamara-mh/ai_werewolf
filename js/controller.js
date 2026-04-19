@@ -766,7 +766,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     const portraitSrc = `personality/portrait/${escapeHtml(player.name)}/default.png`;
     return `
-      <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--post" alt="" />
+      <img src="${portraitSrc}" onerror="handlePortraitError(this)" class="player-portrait player-portrait--post" alt="" />
       <span class="modal-player-btn__name">${nameHtml}</span>`;
   }
 
