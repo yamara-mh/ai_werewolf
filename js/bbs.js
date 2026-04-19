@@ -339,7 +339,7 @@ function renderPlayerList(players, options = {}) {
     const portraitSrc = `personality/portrait/${escapeHtml(player.name)}/default.png`;
     const isAlly = italicPlayerIds.has(player.id);
     const roleObjForCard = (player.coRole ? ROLE_BY_ID[player.coRole] : null) || ROLES.VILLAGER;
-    const cardRoleIcon = roleObjForCard?.icon || ROLES.VILLAGER.icon;
+    const portraitRoleIcon = roleObjForCard?.icon || ROLES.VILLAGER.icon;
     const colorClass = (!isAlly && player.coRole) ? ` player-name--co-${player.coRole}` : '';
     const allyClass = isAlly ? ' ally-name' : '';
 
@@ -349,7 +349,7 @@ function renderPlayerList(players, options = {}) {
       <span class="player-card__name">
         <span class="player-portrait-wrapper">
           <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
-          <span class="player-name-icon player-name-icon--portrait">${cardRoleIcon}</span>
+          <span class="player-name-icon player-name-icon--portrait">${portraitRoleIcon}</span>
           ${deadLabel}
         </span>
         <span class="player-name-text${colorClass}${allyClass}">${escapeHtml(player.name)}</span>

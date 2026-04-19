@@ -236,7 +236,11 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   }
 
   lines.push('# 登場人物の名前、役職、性格');
-  const shuffledPlayers = [...allPlayers].sort(() => Math.random() - 0.5);
+  const shuffledPlayers = [...allPlayers];
+  for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+  }
   shuffledPlayers.forEach(({ name, role, isHuman, personality, firstPersonPronouns, speakingStyle, currentVote }) => {
     lines.push(`## ${name}`);
     if (isHuman) {
