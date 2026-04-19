@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let uiLocked = false;
   const BUFFER_TARGET = 10;
   const BUFFER_REFILL_AT = 5;
-  const BUFFER_REFILL_COUNT = 10;
+  const BUFFER_REFILL_COUNT = 5;
 
   const roleById = Object.values(ROLES).reduce((map, role) => {
     map[role.id] = role;

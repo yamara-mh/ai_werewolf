@@ -293,7 +293,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
     posts: [{ name: 'プレイヤー名', coRole: 'カミングアウトする役職ID（省略可）', thinking: '思考内容（省略可）', talk: '発言内容（省略可）', status: '表情', villager: [{ name: '白だしするプレイヤー名の配列（省略可）' }], werewolf: ['黒だしするプレイヤー名の配列（省略可）'], vote: '投票先プレイヤー名（省略可）' }],
   }, null, 2));
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
-  lines.push(`status の値は次のいずれか：default, laugh, serious, worry, doubt, panic, anger, sad`);
+  lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
 
   return lines.join('\n');
