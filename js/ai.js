@@ -1,5 +1,5 @@
 // 有効なポートレートステータス
-const VALID_PORTRAIT_STATUSES = new Set(['default', 'laugh', 'serious', 'worry', 'doubt', 'panic', 'anger', 'sad']);
+const VALID_PORTRAIT_STATUSES = new Set(['default', 'smile', 'smug', 'laugh', 'serious', 'thinking', 'annoyed', 'surprised', 'panicking', 'sad', 'embarrassed']);
 
 // villager/werewolf フィールドのプレイヤー名配列を正規化するヘルパー
 // 配列要素が文字列または {name: string} オブジェクトの両方に対応し、生存プレイヤー名のみを返す

@@ -1,7 +1,7 @@
 // BBS（電子掲示板）UI レンダリング
 
 // 有効なポートレートステータス
-const VALID_PORTRAIT_STATUSES_BBS = new Set(['default', 'laugh', 'serious', 'worry', 'doubt', 'panic', 'anger', 'sad']);
+const VALID_PORTRAIT_STATUSES_BBS = new Set(['default', 'smile', 'smug', 'laugh', 'serious', 'thinking', 'annoyed', 'surprised', 'panicking', 'sad', 'embarrassed']);
 
 // ポートレート画像の読み込み失敗時の処理: .png → .jpg → global default の順にフォールバック
 // bbs.js は controller.js より先に読み込まれるため、controller.js からも参照可能
