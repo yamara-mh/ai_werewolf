@@ -228,7 +228,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
 
   const roomPrefix = roomLevelLabel ? `${roomLevelLabel}による` : '';
   lines.push(`${roomPrefix}人狼ゲームの今日のチャットの続き${targetCount}ポストを、必ずjson形式で出力してください。`);
-    lines.push('登場人物の視点に立ち、知りえない情報は絶対に利用しないでください。');
+    lines.push('talk の情報から思考してください。');
 
   if (roomLevelPrompt) {
     lines.push(roomLevelPrompt);
@@ -283,6 +283,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   }
 
   lines.push('# 留意点');
+  lines.push('占い師は初日、白判定になる人物を無作為に一人伝えられます。');
   lines.push('会議中いつでも投票、再投票できます。');
   lines.push('全員が投票したら会議は終了します。');
   lines.push('');
