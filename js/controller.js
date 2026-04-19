@@ -978,8 +978,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- ローディング状態管理 ---
   function setLoadingState(loading) {
     uiLocked = loading;
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.classList.toggle('hidden', !loading);
     updateChatAvailability();
     renderChatTopActions();
   }

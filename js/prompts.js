@@ -297,6 +297,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
   lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
+  lines.push('villager・werewolf は、プレイヤーが占い師・霊媒師・狩人をCOして「[名前]は白（黒）」と明確に白だし（黒だし）する発言をする場合のみ設定する。単に「白っぽい」「怪しい」などの曖昧な印象を述べるだけの発言では設定しない。');
 
   return lines.join('\n');
 }
