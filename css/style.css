@@ -909,6 +909,17 @@ h1, h2, h3 { line-height: 1.3; }
   display: none;
 }
 
+/* player-portrait-wrapper 内の player-name-icon（役職アイコン）を左下に重ねる */
+.player-portrait-wrapper .player-name-icon--portrait {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  font-size: 1rem;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* ===== CO役職ごとのプレイヤー名カラー ===== */
 .player-name-text {
   color: #ffffff;

@@ -236,7 +236,8 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   }
 
   lines.push('# 登場人物の名前、役職、性格');
-  allPlayers.forEach(({ name, role, isHuman, personality, firstPersonPronouns, speakingStyle, currentVote }) => {
+  const shuffledPlayers = [...allPlayers].sort(() => Math.random() - 0.5);
+  shuffledPlayers.forEach(({ name, role, isHuman, personality, firstPersonPronouns, speakingStyle, currentVote }) => {
     lines.push(`## ${name}`);
     if (isHuman) {
       lines.push(`役職：${role?.name || '村人'}`);

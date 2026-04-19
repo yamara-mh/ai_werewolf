@@ -1,5 +1,8 @@
 // BBS（電子掲示板）UI レンダリング
 
+// 有効なポートレートステータス
+const VALID_PORTRAIT_STATUSES_BBS = new Set(['default', 'laugh', 'serious', 'worry', 'doubt', 'panic', 'anger', 'sad']);
+
 // 役職IDから役職オブジェクトを高速に引ける静的マップ
 const ROLE_BY_ID = Object.values(ROLES).reduce((map, role) => {
   map[role.id] = role;
@@ -90,7 +93,8 @@ class BBS {
         fallbackRoleId: ROLES.VILLAGER.id,
         breakLine: true,
       });
-      const portraitSrc = `personality/portrait/${this._escape(post.playerName)}.png`;
+      const portraitStatus = (post.status && VALID_PORTRAIT_STATUSES_BBS.has(post.status)) ? post.status : 'default';
+      const portraitSrc = `personality/portrait/${this._escape(post.playerName)}/${portraitStatus}.png`;
       const isWolfChat = post.type === 'wolf_chat' || post.type === 'whisper'; // 'whisper' は後方互換
       const wolfChatClass = isWolfChat ? ' bbs-post__row--wolf-chat' : '';
       const wolfChatPrefix = isWolfChat ? '<span class="bbs-post__whisper-prefix">🐺狼チャット</span> ' : '';
@@ -332,11 +336,12 @@ function renderPlayerList(players, options = {}) {
       const text = player.deathReason === 'attack' ? '襲撃' : '処刑';
       deadLabel = `<span class="player-dead-label">${text}</span>`;
     }
-    const portraitSrc = `personality/portrait/${escapeHtml(player.name)}.png`;
+    const portraitSrc = `personality/portrait/${escapeHtml(player.name)}/default.png`;
     const isAlly = italicPlayerIds.has(player.id);
-    const nameHtml = buildPlayerNameHtml(player.name, { coRole: player.coRole, isAlly });
-    const roleObjForOverlay = (player.coRole ? ROLE_BY_ID[player.coRole] : null) || ROLES.VILLAGER;
-    const overlayRoleIcon = roleObjForOverlay?.icon || ROLES.VILLAGER.icon;
+    const roleObjForCard = (player.coRole ? ROLE_BY_ID[player.coRole] : null) || ROLES.VILLAGER;
+    const cardRoleIcon = roleObjForCard?.icon || ROLES.VILLAGER.icon;
+    const colorClass = (!isAlly && player.coRole) ? ` player-name--co-${player.coRole}` : '';
+    const allyClass = isAlly ? ' ally-name' : '';
 
     if (humanClass) el.classList.add(humanClass);
 
@@ -344,10 +349,10 @@ function renderPlayerList(players, options = {}) {
       <span class="player-card__name">
         <span class="player-portrait-wrapper">
           <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
-          <span class="player-card__role-overlay">${overlayRoleIcon}</span>
+          <span class="player-name-icon player-name-icon--portrait">${cardRoleIcon}</span>
           ${deadLabel}
         </span>
-        ${nameHtml}
+        <span class="player-name-text${colorClass}${allyClass}">${escapeHtml(player.name)}</span>
       </span>`;
     if (typeof onPlayerClick === 'function') {
       el.addEventListener('click', () => onPlayerClick(player));
