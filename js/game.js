@@ -55,6 +55,7 @@ class GameState {
       personality: null,
       coRole: null,
       deathReason: null,
+      seerVerdict: null,
     });
 
     // AIプレイヤー
@@ -71,6 +72,7 @@ class GameState {
         speakingStyle: p.speakingStyle || '',
         coRole: null,
         deathReason: null,
+        seerVerdict: null,
       });
     }
   }

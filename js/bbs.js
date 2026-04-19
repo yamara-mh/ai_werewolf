@@ -15,12 +15,23 @@ const SCROLL_POSITION_TOLERANCE = 4;
 // 投稿追加直後の行高変動を吸収するため、24px以内を「最下部付近」とみなす
 const SCROLL_NEAR_BOTTOM_THRESHOLD = 24;
 
+// 占い結果（白/黒）アイコンHTMLを生成するヘルパー
+// portrait=true のときは portrait 用クラスを追加する
+function buildVerdictIconHtml(verdict, portrait = false) {
+  if (!verdict) return '';
+  const extraClass = portrait ? ' player-verdict-icon--portrait' : '';
+  if (verdict === 'white') return `<span class="player-verdict-icon${extraClass}">⚪️</span>`;
+  if (verdict === 'black') return `<span class="player-verdict-icon${extraClass}">⚫️</span>`;
+  return '';
+}
+
 // プレイヤー名の表示HTML（役職COアイコン・仲間アンダーライン）を一元生成
 function buildPlayerNameHtml(name, {
   coRole = null,
   isAlly = false,
   fallbackRoleId = ROLES.VILLAGER.id,
   breakLine = false,
+  seerVerdict = null,
 } = {}) {
   const roleObj = (coRole ? ROLE_BY_ID[coRole] : null)
     || ROLE_BY_ID[fallbackRoleId]
@@ -30,7 +41,8 @@ function buildPlayerNameHtml(name, {
   // 仲間（ally）の場合はCOカラーを付けない、それ以外はcoRoleに基づくカラークラスを付ける
   const colorClass = (!isAlly && coRole) ? ` player-name--co-${coRole}` : '';
   const allyClass = isAlly ? ' ally-name' : '';
-  return `<span class="player-name-icon">${roleIcon}</span>${separator}<span class="player-name-text${colorClass}${allyClass}">${escapeHtml(name)}</span>`;
+  const verdictHtml = buildVerdictIconHtml(seerVerdict);
+  return `<span class="player-name-icon">${roleIcon}${verdictHtml}</span>${separator}<span class="player-name-text${colorClass}${allyClass}">${escapeHtml(name)}</span>`;
 }
 
 function buildPlayerNameText(name, { coRole = null, fallbackRoleId = ROLES.VILLAGER.id } = {}) {
@@ -51,6 +63,7 @@ class BBS {
     this.knownAllyIds = new Set();
     this.canViewWhisper = false;
     this.suppressAutoScroll = false;
+    this.seerVerdicts = {}; // playerId -> 'white' | 'black'
     this.scrollBottomBtn = document.getElementById('bbs-scroll-bottom-btn');
     this.dayScrollUpBtn = document.getElementById('bbs-day-scroll-up-btn');
     this.dayScrollDownBtn = document.getElementById('bbs-day-scroll-down-btn');
@@ -87,11 +100,13 @@ class BBS {
         </div>`;
     } else {
       const isAlly = this.knownAllyIds.has(post.playerId);
+      const seerVerdict = this.seerVerdicts[post.playerId] || null;
       const nameHtml = buildPlayerNameHtml(post.playerName, {
         coRole: post.coRole,
         isAlly,
         fallbackRoleId: ROLES.VILLAGER.id,
         breakLine: true,
+        seerVerdict,
       });
       const portraitStatus = (post.status && VALID_PORTRAIT_STATUSES_BBS.has(post.status)) ? post.status : 'default';
       const portraitSrc = `personality/portrait/${this._escape(post.playerName)}/${portraitStatus}.png`;
@@ -309,6 +324,25 @@ class BBS {
     this.knownAllyIds = new Set(allyIds);
     this.canViewWhisper = !!canViewWhisper;
   }
+
+  // 占い結果マップを一括設定（ゲームロード時に使用）
+  setSeerVerdicts(verdictMap) {
+    this.seerVerdicts = { ...verdictMap };
+  }
+
+  // プレイヤーの占い結果を更新し、既存の投稿DOM要素にも反映する
+  updatePlayerVerdict(playerId, verdict) {
+    this.seerVerdicts[playerId] = verdict;
+    if (!this.container) return;
+    const verdictHtml = buildVerdictIconHtml(verdict);
+    this.container.querySelectorAll('.bbs-post').forEach((postEl) => {
+      if (postEl.dataset.playerId !== playerId) return;
+      const iconEl = postEl.querySelector('.player-name-icon');
+      if (!iconEl) return;
+      iconEl.querySelector('.player-verdict-icon')?.remove();
+      if (verdictHtml) iconEl.insertAdjacentHTML('beforeend', verdictHtml);
+    });
+  }
 }
 
 // プレイヤーリストのレンダリング
@@ -342,6 +376,8 @@ function renderPlayerList(players, options = {}) {
     const portraitRoleIcon = roleObjForCard?.icon || ROLES.VILLAGER.icon;
     const colorClass = (!isAlly && player.coRole) ? ` player-name--co-${player.coRole}` : '';
     const allyClass = isAlly ? ' ally-name' : '';
+    const seerVerdict = player.seerVerdict || null;
+    const verdictPortraitHtml = buildVerdictIconHtml(seerVerdict, true);
 
     if (humanClass) el.classList.add(humanClass);
 
@@ -349,7 +385,7 @@ function renderPlayerList(players, options = {}) {
       <span class="player-card__name">
         <span class="player-portrait-wrapper">
           <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
-          <span class="player-name-icon player-name-icon--portrait">${portraitRoleIcon}</span>
+          <span class="player-name-icon player-name-icon--portrait">${portraitRoleIcon}${verdictPortraitHtml}</span>
           ${deadLabel}
         </span>
         <span class="player-name-text${colorClass}${allyClass}">${escapeHtml(player.name)}</span>
