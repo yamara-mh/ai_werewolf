@@ -228,7 +228,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
 
   const roomPrefix = roomLevelLabel ? `${roomLevelLabel}による` : '';
   lines.push(`${roomPrefix}人狼ゲームの今日のチャットの続き${targetCount}ポストを、必ずjson形式で出力してください。`);
-    lines.push('talk の情報から思考してください。');
+  lines.push('登場人物は talk の情報を頼りに思考するため、誤った推論をすることがあります。');
 
   if (roomLevelPrompt) {
     lines.push(roomLevelPrompt);
