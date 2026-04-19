@@ -292,7 +292,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   lines.push('# 出力形式');
   lines.push('以下のJSON形式で出力してください：');
   lines.push(JSON.stringify({
-    posts: [{ name: 'プレイヤー名', coRole: 'カミングアウトする役職ID（省略可）', thinking: '思考内容（省略可）', talk: '発言内容（省略可）', status: '表情', villager: [{ name: '白だしするプレイヤー名の配列（省略可）' }], werewolf: ['黒だしするプレイヤー名の配列（省略可）'], vote: '投票先プレイヤー名（省略可）' }],
+    posts: [{ name: 'プレイヤー名', coRole: 'カミングアウトする役職ID（省略可）', strategy: '戦略を簡潔に記述（省略可）', talk: '発言内容（省略可）', status: '表情', villager: [{ name: '白だしするプレイヤー名の配列（省略可）' }], werewolf: ['黒だしするプレイヤー名の配列（省略可）'], vote: '投票先プレイヤー名（省略可）' }],
   }, null, 2));
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
   lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
