@@ -947,9 +947,10 @@ h1, h2, h3 { line-height: 1.3; }
   line-height: 1;
 }
 
-/* ポートレート上の占い結果アイコンはtext-shadowを打ち消す（絵文字に不要） */
+/* ポートレート上の占い結果アイコンはtext-shadowを打ち消し、下揃えにする */
 .player-verdict-icon--portrait {
   text-shadow: none;
+  vertical-align: bottom;
 }
 
 /* ===== 人狼専用チャット背景 ===== */
