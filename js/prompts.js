@@ -228,10 +228,9 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
 
   const roomPrefix = roomLevelLabel ? `${roomLevelLabel}による` : '';
   lines.push(`${roomPrefix}人狼ゲームの今日のチャットの続き${targetCount}ポストを、必ずjson形式で出力してください。`);
-  lines.push('');
+    lines.push('登場人物の視点に立ち、知りえない情報は絶対に利用しないでください。');
 
   if (roomLevelPrompt) {
-    lines.push('# 備考');
     lines.push(roomLevelPrompt);
     lines.push('');
   }
@@ -286,10 +285,10 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   lines.push('# 出力形式');
   lines.push('以下のJSON形式で出力してください：');
   lines.push(JSON.stringify({
-    posts: [{ name: 'プレイヤー名', talk: '発言内容（省略可）', coRole: 'カミングアウトする役職ID（省略可）', villager: [{ name: '白だしするプレイヤー名（省略可）' }], werewolf: ['黒だしするプレイヤー名（省略可）'], vote: '投票先プレイヤー名（省略可）' }],
+    posts: [{ name: 'プレイヤー名', coRole: 'カミングアウトする役職ID（省略可）', thinking: '思考内容（省略可）', talk: '発言内容（省略可）', status: '表情', villager: [{ name: '白だしするプレイヤー名の配列（省略可）' }], werewolf: ['黒だしするプレイヤー名の配列（省略可）'], vote: '投票先プレイヤー名（省略可）' }],
   }, null, 2));
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
-  lines.push('villager は白だしするプレイヤーの配列（省略可）、werewolf は黒だしするプレイヤー名の配列（省略可）');
+  lines.push(`status の値は次のいずれか：default, laugh, serious, worry, doubt, panic, anger, sad`);
   lines.push('vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
 
   return lines.join('\n');
