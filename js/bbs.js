@@ -3,6 +3,21 @@
 // 有効なポートレートステータス
 const VALID_PORTRAIT_STATUSES_BBS = new Set(['default', 'laugh', 'serious', 'worry', 'doubt', 'panic', 'anger', 'sad']);
 
+// ポートレート画像の読み込み失敗時の処理: .png → .jpg → global default の順にフォールバック
+// bbs.js は controller.js より先に読み込まれるため、controller.js からも参照可能
+function handlePortraitError(img) {
+  if (!img.dataset.portraitErr) {
+    img.dataset.portraitErr = '1';
+    const newSrc = img.src.replace(/\.png$/, '.jpg');
+    if (newSrc !== img.src) {
+      img.src = newSrc;
+      return;
+    }
+  }
+  img.onerror = null;
+  img.src = 'personality/portrait/default.png';
+}
+
 // 役職IDから役職オブジェクトを高速に引ける静的マップ
 const ROLE_BY_ID = Object.values(ROLES).reduce((map, role) => {
   map[role.id] = role;
@@ -118,7 +133,7 @@ class BBS {
           <label class="bbs-post__bookmark">
             <input type="checkbox" class="bbs-post__bookmark-checkbox" />
           </label>
-          <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--post" alt="" />
+          <img src="${portraitSrc}" onerror="handlePortraitError(this)" class="player-portrait player-portrait--post" alt="" />
           <span class="bbs-post__name">${nameHtml}</span>
           <span class="bbs-post__body">${wolfChatPrefix}${this._escape(post.content)}</span>
         </div>`;
@@ -384,7 +399,7 @@ function renderPlayerList(players, options = {}) {
     el.innerHTML = `
       <span class="player-card__name">
         <span class="player-portrait-wrapper">
-          <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--card" alt="" />
+          <img src="${portraitSrc}" onerror="handlePortraitError(this)" class="player-portrait player-portrait--card" alt="" />
           <span class="player-name-icon player-name-icon--portrait">${portraitRoleIcon}${verdictPortraitHtml}</span>
           ${deadLabel}
         </span>
