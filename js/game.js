@@ -97,7 +97,7 @@ class GameState {
   }
 
   // BBS投稿を追加
-  addPost({ playerName, content, type = 'speech', playerId = null, coRole = null }) {
+  addPost({ playerName, content, type = 'speech', playerId = null, coRole = null, status = null }) {
     const post = {
       id: this.bbsLog.length + 1,
       postNumber: this.bbsLog.length + 1,
@@ -109,6 +109,7 @@ class GameState {
       type, // 'speech' | 'system' | 'vote' | 'result' | 'whisper'
       timestamp: new Date().toLocaleTimeString('ja-JP'),
       coRole,
+      status,
     };
     this.bbsLog.push(post);
     return post;

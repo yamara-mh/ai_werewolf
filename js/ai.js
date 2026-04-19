@@ -1,3 +1,6 @@
+// 有効なポートレートステータス
+const VALID_PORTRAIT_STATUSES = new Set(['default', 'laugh', 'serious', 'worry', 'doubt', 'panic', 'anger', 'sad']);
+
 // AI プレイヤーロジック
 // callAI は api.js、プロンプト構築は prompts.js で定義されています
 
@@ -512,11 +515,13 @@ class BatchConversationAI {
       ).map((post) => {
         // target フィールド（新形式）と vote フィールド（旧形式）の両方に対応
         const voteValue = post.target || post.vote;
+        const statusValue = (typeof post.status === 'string' && VALID_PORTRAIT_STATUSES.has(post.status)) ? post.status : 'default';
         return {
           name: post.name,
           talk: (typeof post.talk === 'string') ? post.talk : '',
           coRole: (typeof post.coRole === 'string' && post.coRole.trim()) ? post.coRole.trim() : null,
           vote: (typeof voteValue === 'string' && aliveNames.has(voteValue) && voteValue !== post.name) ? voteValue : null,
+          status: statusValue,
         };
       });
 
@@ -569,6 +574,7 @@ class BatchConversationAI {
         talk: speeches[Math.floor(Math.random() * speeches.length)],
         coRole: null,
         vote: null,
+        status: 'default',
       })),
     };
   }

@@ -51,9 +51,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   let conversationBuffer = [];
   let bufferGenerating = false;
   let uiLocked = false;
-  const BUFFER_TARGET = 30;
+  const BUFFER_TARGET = 10;
   const BUFFER_REFILL_AT = 5;
-  const BUFFER_REFILL_COUNT = 20;
+  const BUFFER_REFILL_COUNT = 10;
 
   const roleById = Object.values(ROLES).reduce((map, role) => {
     map[role.id] = role;
@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (phaseLabel) phaseLabel.textContent = phaseText(gs.phase);
     if (dayLabel) dayLabel.textContent = gs.day > 0 ? `${gs.day}日目` : '';
     if (roleLabel && humanPlayer?.role) {
-      roleLabel.textContent = `${humanPlayer.role.icon} ${humanPlayer.role.name}`;
+      roleLabel.textContent = humanPlayer.role.icon;
     }
     updateWhisperButton();
     updateChatAvailability();
@@ -743,7 +743,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       isAlly,
       fallbackRoleId: ROLES.VILLAGER.id,
     });
-    const portraitSrc = `personality/portrait/${escapeHtml(player.name)}.png`;
+    const portraitSrc = `personality/portrait/${escapeHtml(player.name)}/default.png`;
     return `
       <img src="${portraitSrc}" onerror="this.src='personality/portrait/default.png'" class="player-portrait player-portrait--post" alt="" />
       <span class="modal-player-btn__name">${nameHtml}</span>`;
@@ -936,6 +936,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       content: postData.talk,
       coRole: player.coRole,
       type: 'speech',
+      status: postData.status || null,
     });
     bbs.renderPost(post);
     renderPlayers();
