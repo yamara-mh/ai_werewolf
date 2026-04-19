@@ -914,10 +914,15 @@ h1, h2, h3 { line-height: 1.3; }
   position: absolute;
   bottom: 0;
   left: 0;
-  font-size: 1rem;
+  font-size: 1.5rem;
   line-height: 1;
   pointer-events: none;
   z-index: 1;
+  text-shadow:
+    -1px -1px 0 #000,
+     1px -1px 0 #000,
+    -1px  1px 0 #000,
+     1px  1px 0 #000;
 }
 
 /* ===== CO役職ごとのプレイヤー名カラー ===== */
@@ -934,6 +939,18 @@ h1, h2, h3 { line-height: 1.3; }
 .player-name--co-shared    { color: #44cc66; }
 .player-name--co-cat       { color: #ffcc00; }
 .player-name--co-fox       { color: #FF00FF; }
+
+/* ===== 占い結果アイコン（⚪️/⚫️）===== */
+.player-verdict-icon {
+  font-size: 0.6em;
+  vertical-align: top;
+  line-height: 1;
+}
+
+/* ポートレート上の占い結果アイコンはtext-shadowを打ち消す（絵文字に不要） */
+.player-verdict-icon--portrait {
+  text-shadow: none;
+}
 
 /* ===== 人狼専用チャット背景 ===== */
 .chat-bar--wolf-chat {
