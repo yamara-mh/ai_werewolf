@@ -3,20 +3,50 @@
 // 有効なポートレートステータス
 const VALID_PORTRAIT_STATUSES_BBS = new Set(['default', 'smile', 'smug', 'laugh', 'serious', 'thinking', 'annoyed', 'surprised', 'panicking', 'sad', 'embarrassed']);
 
-// ポートレート画像の読み込み失敗時の処理: .png → .jpg → global default の順にフォールバック
+// default.* が存在しないキャラクター向けに試みるフォールバックステータス
+const PORTRAIT_STATUS_FALLBACKS = ['serious'];
+
+// キャラクター固有フォルダー内のポートレートパスを解析する正規表現
+// キャプチャグループ: (1) ディレクトリ部分, (2) ステータス名, (3) 拡張子
+const PORTRAIT_PATH_PATTERN = /(personality\/portrait\/[^/]+\/)([^./]+)\.(png|jpg)$/;
+
+// ポートレート画像の読み込み失敗時の処理
+// .png → .jpg → フォールバックステータス(.png/.jpg) → global default の順にフォールバック
 // bbs.js は controller.js より先に読み込まれるため、controller.js からも参照可能
 function handlePortraitError(img) {
-  if (img.dataset.portraitErr === '2') return;
-  if (!img.dataset.portraitErr) {
-    img.dataset.portraitErr = '1';
-    const newSrc = img.src.replace(/\.png$/, '.jpg');
-    if (newSrc !== img.src) {
-      img.src = newSrc;
+  if (img.dataset.portraitErr === 'done') return;
+
+  const src = img.src;
+
+  // フェーズ1: .png → .jpg（同ステータスの .jpg を試す）
+  if (img.dataset.portraitErr !== 'jpg') {
+    img.dataset.portraitErr = 'jpg';
+    const jpgSrc = src.replace(/\.png$/, '.jpg');
+    if (jpgSrc !== src) {
+      img.src = jpgSrc;
       return;
     }
   }
+
+  // フェーズ2: キャラクターフォルダー内で別ステータスを試す（default.* が存在しない場合向け）
+  // dataset.portraitTried はカンマ区切り文字列（ステータス名にカンマは含まれないため安全）
+  const m = src.match(PORTRAIT_PATH_PATTERN);
+  if (m) {
+    const dir = m[1];
+    const tried = new Set((img.dataset.portraitTried || '').split(',').filter(Boolean));
+    tried.add(m[2]);
+    const next = PORTRAIT_STATUS_FALLBACKS.find((s) => !tried.has(s));
+    if (next) {
+      img.dataset.portraitErr = '';
+      img.dataset.portraitTried = Array.from(tried).join(',');
+      img.src = `${dir}${next}.png`;
+      return;
+    }
+  }
+
+  // フェーズ3: グローバルデフォルト
   img.onerror = null;
-  img.dataset.portraitErr = '2';
+  img.dataset.portraitErr = 'done';
   img.src = 'personality/portrait/default.png';
 }
 
