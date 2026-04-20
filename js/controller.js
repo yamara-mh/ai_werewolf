@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bbs = new BBS('bbs-container');
   const aiPlayer = new AIPlayer(gs);
   const batchConversationAI = new BatchConversationAI(gs);
+  const precisionConversationAI = new PrecisionConversationAI(gs);
   const humanPlayer = gs.getHumanPlayer();
 
   // --- UI要素 ---
@@ -268,7 +269,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         conversationBuffer = [];
         setLoadingState(true);
         try {
-          await generateConversationBuffer(BUFFER_TARGET);
+          // 精度向上モードでは最新の会話を反映するため1件だけ先読みする
+          const refillCount = gs.settings.precisionMode ? 1 : BUFFER_TARGET;
+          await generateConversationBuffer(refillCount);
         } finally {
           setLoadingState(false);
         }
@@ -371,7 +374,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     switch (gs.phase) {
       case GAME_PHASES.DAY:
         if (!bufferGenerating && conversationBuffer.length === 0) {
-          generateConversationBuffer(BUFFER_TARGET);
+          const refillCount = gs.settings.precisionMode ? 1 : BUFFER_TARGET;
+          generateConversationBuffer(refillCount);
         }
         break;
       case GAME_PHASES.VOTE:
@@ -432,8 +436,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateHeader();
     conversationBuffer = [];
 
+    // 精度向上モードのスピーカーキューをリセット
+    if (gs.settings.precisionMode) {
+      precisionConversationAI.resetQueue();
+    }
+
     // 会話バッファ生成を開始（非ブロッキング）
-    generateConversationBuffer(BUFFER_TARGET);
+    const initialCount = gs.settings.precisionMode ? 1 : BUFFER_TARGET;
+    generateConversationBuffer(initialCount);
     renderChatTopActions();
 
     gs.save();
@@ -896,8 +906,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     bufferGenerating = true;
     renderChatTopActions();
     try {
-      const result = await batchConversationAI.generateAdventure(count);
-      conversationBuffer.push(...result.posts);
+      if (gs.settings.precisionMode) {
+        // 精度向上モード: 1発言ずつ生成（最新の会話状態を反映）
+        const genCount = Math.max(1, count);
+        for (let i = 0; i < genCount; i++) {
+          const post = await precisionConversationAI.generateNext();
+          if (post) conversationBuffer.push(post);
+        }
+      } else {
+        const result = await batchConversationAI.generateAdventure(count);
+        conversationBuffer.push(...result.posts);
+      }
     } finally {
       bufferGenerating = false;
       renderChatTopActions();
@@ -923,7 +942,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!postData) {
       if (!bufferGenerating) {
-        generateConversationBuffer(BUFFER_REFILL_COUNT);
+        const refillCount = gs.settings.precisionMode ? 1 : BUFFER_REFILL_COUNT;
+        generateConversationBuffer(refillCount);
       }
       return;
     }
@@ -969,7 +989,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // バッファが少なくなったらバックグラウンドで補充
     if (conversationBuffer.length <= BUFFER_REFILL_AT && !bufferGenerating) {
-      generateConversationBuffer(BUFFER_REFILL_COUNT);
+      const refillCount = gs.settings.precisionMode ? 1 : BUFFER_REFILL_COUNT;
+      generateConversationBuffer(refillCount);
     }
 
     checkAndTriggerVote();
