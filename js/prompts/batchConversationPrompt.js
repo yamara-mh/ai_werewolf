@@ -89,12 +89,14 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   });
   lines.push('');
 
-  lines.push('# 前日までのあらすじ');
-  lines.push(previousDaysSynopsis || 'なし');
+  lines.push('# 留意点');
+  lines.push('占い師は初日、白判定になる人物を無作為に一人伝えられます。');
+  lines.push('会議中いつでも投票、再投票できます。');
+  lines.push('全員が投票したら会議は終了します。');
   lines.push('');
 
-  lines.push('# 今日のチャット');
-  todayPosts.forEach((post) => lines.push(_formatPostSimple(post)));
+  lines.push('# 前日までのあらすじ');
+  lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
 
   if (wolfPosts && wolfPosts.length > 0) {
@@ -102,6 +104,10 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
     wolfPosts.forEach((post) => lines.push(_formatPostSimple(post)));
     lines.push('');
   }
+
+  lines.push('# 今日のチャット');
+  todayPosts.forEach((post) => lines.push(_formatPostSimple(post)));
+  lines.push('');
 
   if (currentVotes && currentVotes.length > 0) {
     lines.push('# 現在の投票状況');
@@ -115,21 +121,18 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
     lines.push('');
   }
 
-  lines.push('# 留意点');
-  lines.push('占い師は初日、白判定になる人物を無作為に一人伝えられます。');
-  lines.push('会議中いつでも投票、再投票できます。');
-  lines.push('全員が投票したら会議は終了します。');
-  lines.push('');
-
   lines.push('# 出力形式');
   lines.push('以下のJSON形式で出力してください：');
   lines.push(JSON.stringify({
     posts: [{ name: 'プレイヤー名', coRole: 'カミングアウトする役職ID（省略可）', strategy: '戦略を簡潔に記述（省略可）', talk: '発言内容（省略可）', status: '表情', villager: [{ name: '白だしするプレイヤー名の配列（省略可）' }], werewolf: ['黒だしするプレイヤー名の配列（省略可）'], vote: '投票先プレイヤー名（省略可）' }],
   }, null, 2));
+  
+  lines.push('');
+  lines.push('## 詳細');
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
   lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
-  lines.push('vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
-  lines.push('villager・werewolf は、プレイヤーが占い師・霊媒師・狩人をCOして「[名前]は白（黒）」と明確に白だし（黒だし）する発言をした場合のみ設定する');
+  lines.push('vote は投票先変更がある場合のみ設定（省略可）');
+  lines.push('villager・werewolf は占い師・霊媒師・狩人をCOして明確に白だし（黒だし）する場合のみ設定する。');
 
   return lines.join('\n');
 }

@@ -22,11 +22,10 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
   const teamLabel = isWolf ? '人狼陣営' : (isFox ? '妖狐陣営' : '村人陣営');
   const lines = [
     'あなたは人狼ゲームのプレイヤーです。',
-    '今日のチャットの続きを1ポスト、必ず json で出力してください。',
+    '今日のチャットの続き1ポストを、必ずJSON形式で出力してください。',
     '',
     `# プロフィール`,
   ];
-  if (sharedPartner)                lines.push(`仲間の共有者: ${sharedPartner}`);
   lines.push(`名前: ${player.name}`);
   lines.push(`役職: ${role?.name || '不明'}（${role?.description || ''}）`);
   lines.push(`チーム: ${teamLabel}`);
@@ -34,6 +33,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
   if (player.firstPersonPronouns)   lines.push(`一人称: ${player.firstPersonPronouns}`);
   if (player.speakingStyle)         lines.push(`話し方: ${player.speakingStyle}`);
   if (isWolf && teammates)          lines.push(`仲間の人狼: ${teammates}`);
+  if (sharedPartner)                lines.push(`仲間の共有者: ${sharedPartner}`);
   if (roomLevelPrompt)              lines.push(roomLevelPrompt);
   return lines.join('\n');
 }
@@ -57,6 +57,12 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previou
 
   lines.push('# 生存プレイヤー');
   lines.push(alivePlayersText || 'なし');
+  lines.push('');
+
+  lines.push('# 留意点');
+  lines.push('占い師は初日、白判定になる人物を無作為に一人伝えられます。');
+  lines.push('会議中いつでも投票、再投票できます。');
+  lines.push('全員が投票したら会議は終了します。');
   lines.push('');
 
   lines.push('# 前日までのあらすじ');
@@ -105,20 +111,18 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previou
     lines.push('');
   }
 
-  lines.push('# 留意点');
-  lines.push('占い師は初日、白判定になる人物を無作為に一人伝えられます。');
-  lines.push('会議中いつでも投票、再投票できます。');
-  lines.push('');
-
   lines.push('# 出力形式');
-  lines.push('以下のJSON形式で1件だけ出力してください：');
+  lines.push('必ず以下のJSON形式に従い、1件出力してください：');
   lines.push(JSON.stringify({
     posts: [{ name: player.name, coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容', status: '表情', villager: [{ name: '白だしするプレイヤー名の配列（省略可）' }], werewolf: ['黒だしするプレイヤー名の配列（省略可）'], vote: '投票先プレイヤー名（省略可）' }],
-    nextSpeaker: '次に発言するプレイヤー名（生存プレイヤーから選択、あなた自身も可）',
+    nextSpeaker: '次に発言するプレイヤー名（生存プレイヤーから選択）',
   }, null, 2));
+
+  lines.push('');
+  lines.push('## 詳細');
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
   lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
-  lines.push('vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
+  lines.push('vote は投票先変更がある場合のみ設定（省略可）');
   lines.push('villager・werewolf は占い師・霊媒師・狩人をCOして明確に白だし（黒だし）する場合のみ設定する。');
   lines.push('nextSpeaker は次に発言する可能性が高いプレイヤー名を必ず設定すること。連続発言も可。');
 
