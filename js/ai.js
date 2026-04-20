@@ -686,6 +686,12 @@ class PrecisionConversationAI {
       .map((p) => p.name)
       .join('、');
 
+    // 次の発言者候補（人間プレイヤーを除くAIプレイヤーのみ）
+    const nextSpeakerCandidatesText = gs.getAlivePlayers()
+      .filter((p) => !p.isHuman)
+      .map((p) => p.name)
+      .join('、');
+
     const todayPosts = gs.getTodayPosts();
 
     // 人狼のみ人狼チャットを参照できる
@@ -727,6 +733,7 @@ class PrecisionConversationAI {
       player: speaker,
       day: gs.day,
       alivePlayersText,
+      nextSpeakerCandidatesText,
       previousDaysSynopsis: gs.previousDaysSynopsis || '',
       todayPosts,
       wolfPosts,
@@ -746,9 +753,15 @@ class PrecisionConversationAI {
         throw new Error('posts が空です');
       }
 
-      // LLMが指定した次の発言者を保存
+      // LLMが指定した次の発言者を保存（人間プレイヤーは除外）
       if (typeof data.nextSpeaker === 'string' && data.nextSpeaker.trim()) {
-        this._nextSpeakerName = data.nextSpeaker.trim();
+        const candidateName = data.nextSpeaker.trim();
+        const aliveAiNames = new Set(
+          this.gameState.getAlivePlayers().filter((p) => !p.isHuman).map((p) => p.name),
+        );
+        if (aliveAiNames.has(candidateName)) {
+          this._nextSpeakerName = candidateName;
+        }
       }
 
       const aliveNames = new Set(this.gameState.getAlivePlayers().map((p) => p.name));

@@ -6,6 +6,7 @@ const VALID_PORTRAIT_STATUSES_BBS = new Set(['default', 'smile', 'smug', 'laugh'
 // ポートレート画像の読み込み失敗時の処理: .png → .jpg → global default の順にフォールバック
 // bbs.js は controller.js より先に読み込まれるため、controller.js からも参照可能
 function handlePortraitError(img) {
+  if (img.dataset.portraitErr === '2') return;
   if (!img.dataset.portraitErr) {
     img.dataset.portraitErr = '1';
     const newSrc = img.src.replace(/\.png$/, '.jpg');
@@ -15,6 +16,7 @@ function handlePortraitError(img) {
     }
   }
   img.onerror = null;
+  img.dataset.portraitErr = '2';
   img.src = 'personality/portrait/default.png';
 }
 
