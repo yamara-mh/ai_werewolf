@@ -18,7 +18,10 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt) {
   const role = player.role;
   const isWolf = isActualWolf(role);
   const lines = [
-    'あなたは人狼ゲームのAIプレイヤーです。',
+    'あなたは人狼ゲームのプレイヤーです。',
+    '今日のチャットの続きを1ポスト、必ず json で出力してください。',
+    '',
+    `# プロフィール`,
     `名前: ${player.name}`,
     `役職: ${role?.name || '不明'}（${role?.description || ''}）`,
     `チーム: ${isWolf ? '人狼陣営' : '村人陣営'}`,
@@ -28,7 +31,6 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt) {
   if (player.speakingStyle)         lines.push(`話し方: ${player.speakingStyle}`);
   if (isWolf && teammates)          lines.push(`仲間の人狼: ${teammates}`);
   if (roomLevelPrompt)              lines.push(roomLevelPrompt);
-  lines.push('あなたが知り得る情報だけを根拠に、キャラクターとして自然な日本語で発言してください。');
   return lines.join('\n');
 }
 
@@ -47,11 +49,6 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt) {
 function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, currentVotes }) {
   const lines = [];
 
-  lines.push(`人狼ゲームの ${day}日目 昼（議論）フェーズです。`);
-  lines.push('あなたの発言を1件、必ず json 形式で出力してください。');
-  lines.push('talk はこまめに区切り、冗長な発言は控えてください。');
-  lines.push('');
-
   lines.push('# 生存プレイヤー（あなた以外）');
   lines.push(alivePlayersText || 'なし');
   lines.push('');
@@ -69,15 +66,15 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previou
   lines.push('');
 
   if (wolfPosts && wolfPosts.length > 0) {
-    lines.push('# 人狼チャット（あなたのみ閲覧可能）');
+    lines.push('# 人狼チャット');
     wolfPosts.forEach((post) => lines.push(_formatPostSimple(post)));
     lines.push('');
   }
 
   if (seerResults && seerResults.length > 0) {
-    lines.push('# あなたの占い結果（あなたのみ知っている）');
+    lines.push('# 占い結果');
     seerResults.forEach(({ targetName, isWerewolf }) => {
-      lines.push(`${targetName}: ${isWerewolf ? '🐺 人狼' : '✅ 人狼ではない'}`);
+      lines.push(`${targetName}: ${isWerewolf ? '人狼' : '人狼ではない'}`);
     });
     lines.push('');
   }
