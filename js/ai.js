@@ -602,32 +602,27 @@ class BatchConversationAI {
 class PrecisionConversationAI {
   constructor(gameState) {
     this.gameState = gameState;
-    this._speakerQueue = [];
+    this._nextSpeakerName = null;  // LLMが指定した次の発言者名
   }
 
-  // 昼フェーズ開始時にスピーカーキューをリセット
+  // 昼フェーズ開始時にリセット
   resetQueue() {
-    this._speakerQueue = [];
+    this._nextSpeakerName = null;
   }
 
-  // 次の発言者をキューから取得（空の場合は補充）
-  _nextSpeaker() {
-    // 死亡したプレイヤーをキューから除去
-    const aliveAiIds = new Set(
-      this.gameState.getAlivePlayers().filter((p) => !p.isHuman).map((p) => p.id)
-    );
-    this._speakerQueue = this._speakerQueue.filter((id) => aliveAiIds.has(id));
+  // 次の発言者を決定（LLM指定 or ランダム）
+  _determineSpeaker() {
+    const aliveAiPlayers = this.gameState.getAlivePlayers().filter((p) => !p.isHuman);
+    if (aliveAiPlayers.length === 0) return null;
 
-    if (this._speakerQueue.length === 0) {
-      // キューが空になったらシャッフルして補充
-      const aiPlayers = this.gameState.getAlivePlayers().filter((p) => !p.isHuman);
-      const shuffled = [...aiPlayers].sort(() => Math.random() - 0.5);
-      this._speakerQueue = shuffled.map((p) => p.id);
+    if (this._nextSpeakerName) {
+      const found = aliveAiPlayers.find((p) => p.name === this._nextSpeakerName);
+      this._nextSpeakerName = null;
+      if (found) return found;
     }
 
-    if (this._speakerQueue.length === 0) return null;
-    const nextId = this._speakerQueue.shift();
-    return this.gameState.getAlivePlayers().find((p) => p.id === nextId) || null;
+    // LLM指定がない場合はランダム
+    return aliveAiPlayers[Math.floor(Math.random() * aliveAiPlayers.length)];
   }
 
   // 次のスピーカーの発言を1件生成して返す
@@ -636,7 +631,7 @@ class PrecisionConversationAI {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
 
-    const speaker = this._nextSpeaker();
+    const speaker = this._determineSpeaker();
     if (!speaker) return null;
 
     if (!aiApiKey) {
@@ -672,7 +667,10 @@ class PrecisionConversationAI {
       : '';
     const roomLevel = gs.settings.roomLevel || 'intermediate';
     const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
-    return buildPrecisionSystemPrompt(speaker, teammates, roomLevelPrompt);
+    const sharedPartner = role?.id === ROLES.SHARED.id
+      ? (gs.players.find((p) => p.id !== speaker.id && p.role?.id === ROLES.SHARED.id)?.name || null)
+      : null;
+    return buildPrecisionSystemPrompt(speaker, teammates, roomLevelPrompt, sharedPartner);
   }
 
   _buildUserPrompt(speaker) {
@@ -680,9 +678,11 @@ class PrecisionConversationAI {
     const role = speaker.role;
     const isWolf = isActualWolf(role);
     const isSeer = role?.id === ROLES.SEER.id;
+    const isHunter = role?.id === ROLES.HUNTER.id;
+    const isMedium = role?.id === ROLES.MEDIUM.id;
 
+    // 自身を含む生存プレイヤー名
     const alivePlayersText = gs.getAlivePlayers()
-      .filter((p) => p.id !== speaker.id)
       .map((p) => p.name)
       .join('、');
 
@@ -698,6 +698,21 @@ class PrecisionConversationAI {
       ? gs.players
           .filter((p) => p.seerVerdict != null)
           .map((p) => ({ targetName: p.name, isWerewolf: p.seerVerdict === 'black' }))
+      : [];
+
+    // 騎士のみ前夜の護衛対象を知っている
+    const hunterResult = (isHunter && speaker.lastGuardedId)
+      ? (() => {
+          const guarded = gs.getPlayer(speaker.lastGuardedId);
+          return guarded ? { guardedName: guarded.name } : null;
+        })()
+      : null;
+
+    // 霊媒師のみ処刑済みプレイヤーの役職を知っている
+    const mediumResults = isMedium
+      ? gs.players
+          .filter((p) => !p.isAlive && p.deathReason === 'execution' && p.role)
+          .map((p) => ({ targetName: p.name, isWerewolf: isSeerWerewolf(p.role) }))
       : [];
 
     const currentVotes = gs.getAlivePlayers()
@@ -716,6 +731,8 @@ class PrecisionConversationAI {
       todayPosts,
       wolfPosts,
       seerResults,
+      hunterResult,
+      mediumResults,
       currentVotes,
     });
   }
@@ -727,6 +744,11 @@ class PrecisionConversationAI {
       const data = batchAI._normalizeConversationJson(responseText);
       if (!Array.isArray(data.posts) || data.posts.length === 0) {
         throw new Error('posts が空です');
+      }
+
+      // LLMが指定した次の発言者を保存
+      if (typeof data.nextSpeaker === 'string' && data.nextSpeaker.trim()) {
+        this._nextSpeakerName = data.nextSpeaker.trim();
       }
 
       const aliveNames = new Set(this.gameState.getAlivePlayers().map((p) => p.name));

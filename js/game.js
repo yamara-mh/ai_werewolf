@@ -210,6 +210,11 @@ class GameState {
     );
     const guardedId = hunter ? this.nightActions[hunter.id] : null;
 
+    // 騎士が護衛対象を記録（翌日の発言プロンプト用）
+    if (hunter && guardedId) {
+      hunter.lastGuardedId = guardedId;
+    }
+
     // 人狼の襲撃先
     const wolves = this.players.filter(
       (p) => isWerewolfRole(p.role) && p.isAlive

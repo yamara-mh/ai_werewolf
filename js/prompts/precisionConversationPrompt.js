@@ -13,19 +13,23 @@
  * @param {string} player.speakingStyle
  * @param {string} teammates         仲間の人狼名（人狼陣営のみ）
  * @param {string} roomLevelPrompt   部屋レベルの補足指示
+ * @param {string|null} sharedPartner 共有者の場合、仲間の共有者名（それ以外は null）
  */
-function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt) {
+function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPartner) {
   const role = player.role;
   const isWolf = isActualWolf(role);
+  const isFox = role?.id === ROLES.FOX.id;
+  const teamLabel = isWolf ? '人狼陣営' : (isFox ? '妖狐陣営' : '村人陣営');
   const lines = [
     'あなたは人狼ゲームのプレイヤーです。',
     '今日のチャットの続きを1ポスト、必ず json で出力してください。',
     '',
     `# プロフィール`,
-    `名前: ${player.name}`,
-    `役職: ${role?.name || '不明'}（${role?.description || ''}）`,
-    `チーム: ${isWolf ? '人狼陣営' : '村人陣営'}`,
   ];
+  if (sharedPartner)                lines.push(`仲間の共有者: ${sharedPartner}`);
+  lines.push(`名前: ${player.name}`);
+  lines.push(`役職: ${role?.name || '不明'}（${role?.description || ''}）`);
+  lines.push(`チーム: ${teamLabel}`);
   if (player.personality)           lines.push(`性格: ${player.personality}`);
   if (player.firstPersonPronouns)   lines.push(`一人称: ${player.firstPersonPronouns}`);
   if (player.speakingStyle)         lines.push(`話し方: ${player.speakingStyle}`);
@@ -39,17 +43,19 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt) {
  * @param {object} params
  * @param {object} params.player             発言するプレイヤー
  * @param {number} params.day                現在の日数
- * @param {string} params.alivePlayersText   生存プレイヤー名（読点区切り、自分除く）
+ * @param {string} params.alivePlayersText   生存プレイヤー名（読点区切り、自分を含む）
  * @param {string} params.previousDaysSynopsis 前日までのあらすじ
  * @param {Array}  params.todayPosts         今日の公開チャット投稿配列
  * @param {Array}  params.wolfPosts          今日の人狼チャット投稿配列（人狼のみ参照可）
  * @param {Array}  params.seerResults        占い師の占い結果配列 [{targetName, isWerewolf}]（占い師のみ参照可）
+ * @param {object|null} params.hunterResult  騎士の護衛結果 {guardedName}（騎士のみ参照可）
+ * @param {Array}  params.mediumResults      霊媒師の霊媒結果配列 [{targetName, isWerewolf}]（霊媒師のみ参照可）
  * @param {Array}  params.currentVotes       現在の投票状況 [{voterName, targetName}]
  */
-function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, currentVotes }) {
+function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes }) {
   const lines = [];
 
-  lines.push('# 生存プレイヤー（あなた以外）');
+  lines.push('# 生存プレイヤー');
   lines.push(alivePlayersText || 'なし');
   lines.push('');
 
@@ -79,6 +85,20 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previou
     lines.push('');
   }
 
+  if (hunterResult) {
+    lines.push('# 護衛結果（前夜）');
+    lines.push(`${hunterResult.guardedName} を護衛しました`);
+    lines.push('');
+  }
+
+  if (mediumResults && mediumResults.length > 0) {
+    lines.push('# 霊媒結果');
+    mediumResults.forEach(({ targetName, isWerewolf }) => {
+      lines.push(`${targetName}: ${isWerewolf ? '人狼' : '人狼ではない'}`);
+    });
+    lines.push('');
+  }
+
   if (currentVotes && currentVotes.length > 0) {
     lines.push('# 現在の投票状況');
     currentVotes.forEach(({ voterName, targetName }) => lines.push(`${voterName} → ${targetName}`));
@@ -94,11 +114,13 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previou
   lines.push('以下のJSON形式で1件だけ出力してください：');
   lines.push(JSON.stringify({
     posts: [{ name: player.name, coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容', status: '表情', villager: [{ name: '白だしするプレイヤー名の配列（省略可）' }], werewolf: ['黒だしするプレイヤー名の配列（省略可）'], vote: '投票先プレイヤー名（省略可）' }],
+    nextSpeaker: '次に発言するプレイヤー名（生存プレイヤーから選択、あなた自身も可）',
   }, null, 2));
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
   lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（自分以外の生存者の名前、省略可）');
   lines.push('villager・werewolf は占い師・霊媒師・狩人をCOして明確に白だし（黒だし）する場合のみ設定する。');
+  lines.push('nextSpeaker は次に発言する可能性が高いプレイヤー名を必ず設定すること。連続発言も可。');
 
   return lines.join('\n');
 }
