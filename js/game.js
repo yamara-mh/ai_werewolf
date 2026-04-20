@@ -21,6 +21,7 @@ class GameState {
       reasoningEffort: 'medium',
       roomLevel: 'intermediate',
       showLogicAi: true,
+      precisionMode: false,
     };
     this.logicAiOutput = '';
     // 前日までのあらすじ（夜ターンに更新）

@@ -170,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reasoningEffort: document.getElementById('reasoning-effort')?.value || 'medium',
         roomLevel: document.getElementById('room-level')?.value || 'intermediate',
         showLogicAi: document.getElementById('show-logic-ai')?.checked ?? true,
+        precisionMode: document.getElementById('precision-mode')?.checked ?? false,
       };
       saveLobbySettings();
 

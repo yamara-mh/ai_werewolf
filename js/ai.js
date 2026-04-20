@@ -595,3 +595,181 @@ class BatchConversationAI {
     };
   }
 }
+
+// --- 会話精度向上AI ---
+// 1発言ずつ、発言するキャラクターが知り得る情報だけを LLM に渡して生成します
+
+class PrecisionConversationAI {
+  constructor(gameState) {
+    this.gameState = gameState;
+    this._speakerQueue = [];
+  }
+
+  // 昼フェーズ開始時にスピーカーキューをリセット
+  resetQueue() {
+    this._speakerQueue = [];
+  }
+
+  // 次の発言者をキューから取得（空の場合は補充）
+  _nextSpeaker() {
+    // 死亡したプレイヤーをキューから除去
+    const aliveAiIds = new Set(
+      this.gameState.getAlivePlayers().filter((p) => !p.isHuman).map((p) => p.id)
+    );
+    this._speakerQueue = this._speakerQueue.filter((id) => aliveAiIds.has(id));
+
+    if (this._speakerQueue.length === 0) {
+      // キューが空になったらシャッフルして補充
+      const aiPlayers = this.gameState.getAlivePlayers().filter((p) => !p.isHuman);
+      const shuffled = [...aiPlayers].sort(() => Math.random() - 0.5);
+      this._speakerQueue = shuffled.map((p) => p.id);
+    }
+
+    if (this._speakerQueue.length === 0) return null;
+    const nextId = this._speakerQueue.shift();
+    return this.gameState.getAlivePlayers().find((p) => p.id === nextId) || null;
+  }
+
+  // 次のスピーカーの発言を1件生成して返す
+  // 戻り値: { name, talk, coRole, vote, status, verdictWhite, verdictBlack } | null
+  async generateNext() {
+    const gs = this.gameState;
+    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
+
+    const speaker = this._nextSpeaker();
+    if (!speaker) return null;
+
+    if (!aiApiKey) {
+      return this._fallback(speaker);
+    }
+
+    const systemPrompt = this._buildSystemPrompt(speaker);
+    const userPrompt = this._buildUserPrompt(speaker);
+    const fullPrompt = systemPrompt + '\n\n' + userPrompt;
+
+    try {
+      const responseText = await callAI(fullPrompt, aiApiKey, aiModel, {
+        jsonMode: true,
+        maxTokens: 1000,
+        reasoningEffort,
+      });
+      return this._parseResponse(responseText, speaker);
+    } catch (e) {
+      console.warn(`精度向上モード発言生成エラー (${speaker.name}):`, e);
+      return this._fallback(speaker);
+    }
+  }
+
+  _buildSystemPrompt(speaker) {
+    const gs = this.gameState;
+    const role = speaker.role;
+    const isWolf = isActualWolf(role);
+    const teammates = isWolf
+      ? gs.players
+          .filter((p) => isActualWolf(p.role) && p.id !== speaker.id)
+          .map((p) => p.name)
+          .join('、')
+      : '';
+    const roomLevel = gs.settings.roomLevel || 'intermediate';
+    const roomLevelPrompt = ROOM_LEVELS[roomLevel]?.prompt || '';
+    return buildPrecisionSystemPrompt(speaker, teammates, roomLevelPrompt);
+  }
+
+  _buildUserPrompt(speaker) {
+    const gs = this.gameState;
+    const role = speaker.role;
+    const isWolf = isActualWolf(role);
+    const isSeer = role?.id === ROLES.SEER.id;
+
+    const alivePlayersText = gs.getAlivePlayers()
+      .filter((p) => p.id !== speaker.id)
+      .map((p) => p.name)
+      .join('、');
+
+    const todayPosts = gs.getTodayPosts();
+
+    // 人狼のみ人狼チャットを参照できる
+    const wolfPosts = isWolf
+      ? gs.bbsLog.filter((p) => p.day === gs.day && (p.type === 'wolf_chat' || p.type === 'whisper'))
+      : [];
+
+    // 占い師のみ占い結果（seerVerdict）を知っている
+    const seerResults = isSeer
+      ? gs.players
+          .filter((p) => p.seerVerdict != null)
+          .map((p) => ({ targetName: p.name, isWerewolf: p.seerVerdict === 'black' }))
+      : [];
+
+    const currentVotes = gs.getAlivePlayers()
+      .filter((p) => gs.votes[p.id])
+      .map((p) => {
+        const target = gs.getPlayer(gs.votes[p.id]);
+        return target ? { voterName: p.name, targetName: target.name } : null;
+      })
+      .filter(Boolean);
+
+    return buildPrecisionSpeechUserPrompt({
+      player: speaker,
+      day: gs.day,
+      alivePlayersText,
+      previousDaysSynopsis: gs.previousDaysSynopsis || '',
+      todayPosts,
+      wolfPosts,
+      seerResults,
+      currentVotes,
+    });
+  }
+
+  _parseResponse(responseText, speaker) {
+    try {
+      // BatchConversationAI の JSON パーサーを再利用
+      const batchAI = new BatchConversationAI(this.gameState);
+      const data = batchAI._normalizeConversationJson(responseText);
+      if (!Array.isArray(data.posts) || data.posts.length === 0) {
+        throw new Error('posts が空です');
+      }
+
+      const aliveNames = new Set(this.gameState.getAlivePlayers().map((p) => p.name));
+      const post = data.posts[0];
+      const statusValue = (typeof post.status === 'string' && VALID_PORTRAIT_STATUSES.has(post.status))
+        ? post.status
+        : 'default';
+      const voteValue = post.target || post.vote;
+      const verdictWhite = _normalizeVerdictNames(post.villager, aliveNames);
+      const verdictBlack = _normalizeVerdictNames(post.werewolf, aliveNames);
+
+      return {
+        name: speaker.name,
+        talk: (typeof post.talk === 'string' && post.talk.trim()) ? post.talk.trim() : null,
+        coRole: (typeof post.coRole === 'string' && post.coRole.trim()) ? post.coRole.trim() : null,
+        vote: (typeof voteValue === 'string' && aliveNames.has(voteValue) && voteValue !== speaker.name)
+          ? voteValue : null,
+        status: statusValue,
+        verdictWhite,
+        verdictBlack,
+      };
+    } catch (e) {
+      console.warn(`精度向上モード応答パースエラー (${speaker.name}):`, e, responseText);
+      return this._fallback(speaker);
+    }
+  }
+
+  _fallback(speaker) {
+    const speeches = [
+      'う〜ん、誰が怪しいかな…',
+      'みんな落ち着いて議論しましょう。',
+      '私はまだ判断できていません。情報を集めましょう。',
+      '昨日の行動を振り返ってみるべきでは？',
+      '誰か怪しい人の名前を挙げてみてください。',
+    ];
+    return {
+      name: speaker.name,
+      talk: speeches[Math.floor(Math.random() * speeches.length)],
+      coRole: null,
+      vote: null,
+      status: 'default',
+      verdictWhite: [],
+      verdictBlack: [],
+    };
+  }
+}
