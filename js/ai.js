@@ -340,47 +340,7 @@ class BatchConversationAI {
       const parsed = this._tryParseJsonCandidate(candidate);
       if (parsed !== null) return parsed;
     }
-
-    // 途中で切れた JSON から完結しているポストだけを救済する
-    for (const candidate of candidates) {
-      const repaired = this._repairTruncatedJson(candidate);
-      if (repaired !== null) return repaired;
-    }
-
     throw new Error('JSONオブジェクトが見つかりません');
-  }
-
-  // 途中で途切れた JSON から完結しているオブジェクトを取り出して { posts } を再構築する
-  _repairTruncatedJson(text) {
-    // "posts" 配列の開始位置を探す
-    const postsMatch = text.match(/\{\s*"posts"\s*:\s*\[/);
-    if (!postsMatch) return null;
-
-    const postsArrayStart = postsMatch.index + postsMatch[0].length;
-    const posts = [];
-    let pos = postsArrayStart;
-
-    while (pos < text.length) {
-      // 区切り文字・空白をスキップ
-      while (pos < text.length && /[\s,]/.test(text[pos])) pos++;
-
-      if (text[pos] !== '{') break;
-
-      const end = this._findMatchingClosingIndex(text, pos, '{', '}');
-      if (end === -1) break; // オブジェクトが途中で切れている
-
-      const objectStr = text.slice(pos, end + 1);
-      try {
-        posts.push(JSON.parse(objectStr));
-      } catch (_) {
-        // 壊れたオブジェクトは無視
-      }
-      pos = end + 1;
-    }
-
-    if (posts.length === 0) return null;
-    console.warn('[JSON修復] 途中で切れたレスポンスから', posts.length, '件のポストを復元しました');
-    return { posts };
   }
 
   _tryParseJsonCandidate(text) {
