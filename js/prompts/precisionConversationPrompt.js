@@ -52,7 +52,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {Array}  params.mediumResults      霊媒師の霊媒結果配列 [{targetName, isWerewolf}]（霊媒師のみ参照可）
  * @param {Array}  params.currentVotes       現在の投票状況 [{voterName, targetName}]
  */
-function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes }) {
+function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, nextSpeakerCandidatesText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes }) {
   const lines = [];
 
   lines.push('# 生存プレイヤー');
@@ -115,7 +115,7 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previou
   lines.push('必ず以下のJSON形式に従い、1件出力してください：');
   lines.push(JSON.stringify({
     posts: [{ name: player.name, coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容', status: '表情', villager: [{ name: '白だしするプレイヤー名の配列（省略可）' }], werewolf: ['黒だしするプレイヤー名の配列（省略可）'], vote: '投票先プレイヤー名（省略可）' }],
-    nextSpeaker: '次に発言するプレイヤー名（生存プレイヤーから選択）',
+    nextSpeaker: '次に発言するプレイヤー名',
   }, null, 2));
 
   lines.push('');
@@ -124,7 +124,7 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, previou
   lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（省略可）');
   lines.push('villager・werewolf は占い師・霊媒師・狩人をCOして明確に白だし（黒だし）する場合のみ設定する。');
-  lines.push('nextSpeaker は次に発言する可能性が高いプレイヤー名を必ず設定すること。連続発言も可。');
+  lines.push(`nextSpeaker は次に発言する可能性が高いプレイヤー名を必ず設定すること。連続発言も可。候補: ${nextSpeakerCandidatesText || 'なし'}`);
 
   return lines.join('\n');
 }
