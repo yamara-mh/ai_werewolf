@@ -90,7 +90,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   lines.push('');
 
   lines.push('# 留意点');
-  lines.push('占い師は初日、白判定になる人物を無作為に一人伝えられます。');
+  lines.push('占い師は初日、白判定になる人物を無作為に一人告げられます。');
   lines.push('会議中いつでも投票、再投票できます。');
   lines.push('全員が投票したら会議は終了します。');
   lines.push('');
