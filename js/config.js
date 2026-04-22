@@ -224,5 +224,5 @@ const ROOM_LEVELS = {
   tutorial:     { label: 'チュートリアル', prompt: '初めて人狼ゲームをプレイする方のために、用語やセオリーを解説しながら分かりやすく議論してください。' },
   beginner:     { label: '初級者',         prompt: '初級者向けに、分かりやすい推理と丁寧な議論を心がけてください。' },
   intermediate: { label: '中級者',         prompt: '' },
-  advanced:     { label: '上級者',         prompt: '上級者向けに、高度な論理と深い戦略で議論を進めてください。' },
+  advanced:     { label: '上級者',         prompt: '上級者として高度な論理と深い戦略で議論を進めてください。' },
 };

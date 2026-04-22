@@ -4,8 +4,8 @@ const VALID_PORTRAIT_STATUSES = new Set(['default', 'smile', 'smug', 'laugh', 's
 // villager/werewolf フィールドのプレイヤー名配列を正規化するヘルパー
 // 配列要素が文字列または {name: string} オブジェクトの両方に対応し、生存プレイヤー名のみを返す
 function _normalizeVerdictNames(arr, aliveNames) {
-  if (!Array.isArray(arr)) return [];
-  return arr.map((item) => {
+  const items = Array.isArray(arr) ? arr : (arr && typeof arr === 'object' ? [arr] : []);
+  return items.map((item) => {
     if (typeof item === 'string') return item;
     if (item && typeof item === 'object' && typeof item.name === 'string') return item.name;
     return null;
