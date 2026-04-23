@@ -19,6 +19,17 @@ function _formatPostSimple(post) {
   return JSON.stringify(obj);
 }
 
+/**
+ * 人狼チャット投稿をシンプルな JSON 1行に変換します。
+ * werewolfOnlySecretTalk フィールドを使用します。
+ */
+function _formatWolfPostSimple(post) {
+  const name = post.playerName === '★システム' ? 'GM' : post.playerName;
+  const obj = { name, werewolfOnlySecretTalk: post.content || '' };
+  if (post.coRole) obj.coRole = post.coRole;
+  return JSON.stringify(obj);
+}
+
 // 後方互換のため旧フォーマット関数も残す
 function _formatSystemPostEntry(post) {
   return [

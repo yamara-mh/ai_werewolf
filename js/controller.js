@@ -47,6 +47,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 通常チャットと狼チャットそれぞれの入力テキストを保持
   let normalChatDraft = '';
   let wolfChatDraft = '';
+  // 最後に閲覧した時点での wolf_chat 投稿数（未読通知ドット用）
+  let wolfChatSeenPostCount = 0;
 
   // アドベンチャーモード：会話バッファ管理
   let conversationBuffer = [];
@@ -131,6 +133,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     return isActualWolf(humanPlayer?.role);
   }
 
+  // wolf_chat 投稿の総数を返す
+  function getWolfChatPostCount() {
+    return gs.bbsLog.filter((p) => p.type === 'wolf_chat' || p.type === 'whisper').length;
+  }
+
   function computeKnownAllyIds() {
     knownAllyIds.clear();
     if (humanPlayer?.role?.id === ROLES.SHARED.id) {
@@ -153,13 +160,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  function updateWhisperButton() {
-    if (!whisperToggleBtn) return;
-    const visible = isHumanActualWolf() && humanPlayer.isAlive && gs.phase !== GAME_PHASES.END;
-    whisperToggleBtn.style.display = visible ? '' : 'none';
-    if (!visible) wolfChatModeEnabled = false;
-    whisperToggleBtn.classList.toggle('btn--whisper-active', wolfChatModeEnabled);
-    whisperToggleBtn.textContent = wolfChatModeEnabled ? '🐺 狼チャット オン' : '💬 狼チャット オフ';
+  function updateRoleLabel() {
+    // whisper-mode-btn は廃止。常に非表示にする
+    if (whisperToggleBtn) whisperToggleBtn.style.display = 'none';
+
+    if (!roleLabel) return;
+    const icon = humanPlayer?.role?.icon || '';
+    const isWolf = isHumanActualWolf();
+    const visible = isWolf && humanPlayer.isAlive && gs.phase !== GAME_PHASES.END;
+
+    // アイコンを再設定（通知ドットは後で付与するので先にリセット）
+    roleLabel.textContent = icon;
+
+    if (visible) {
+      roleLabel.style.cursor = 'pointer';
+      roleLabel.classList.toggle('chat-role-label--wolf-chat', wolfChatModeEnabled);
+
+      // 未読通知ドット
+      const hasUnread = !wolfChatModeEnabled && getWolfChatPostCount() > wolfChatSeenPostCount;
+      if (hasUnread) {
+        const dot = document.createElement('span');
+        dot.className = 'wolf-chat-notification-dot';
+        roleLabel.appendChild(dot);
+      }
+    } else {
+      roleLabel.style.cursor = '';
+      roleLabel.classList.remove('chat-role-label--wolf-chat');
+      wolfChatModeEnabled = false;
+    }
   }
 
   function canHumanPostNow() {
@@ -189,7 +217,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       chatInput.classList.toggle('chat-input--wolf-chat', wolfChatModeEnabled && isHumanActualWolf());
     }
     if (chatSubmitBtn) chatSubmitBtn.disabled = !canPost;
-    if (whisperToggleBtn) whisperToggleBtn.disabled = !humanPlayer?.isAlive || gs.phase === GAME_PHASES.END;
     if (chatBar) chatBar.classList.toggle('chat-bar--wolf-chat', wolfChatModeEnabled && isHumanActualWolf());
   }
 
@@ -203,7 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   computeKnownAllyIds();
   updateBbsViewerContext();
-  updateWhisperButton();
+  updateRoleLabel();
   updateChatAvailability();
 
   if (bookmarkFilterBtn) {
@@ -214,9 +241,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  if (whisperToggleBtn) {
-    whisperToggleBtn.addEventListener('click', () => {
+  // role-label クリックで狼チャットモードをトグル（人狼・大狼のみ）
+  if (roleLabel) {
+    roleLabel.addEventListener('click', () => {
       if (!isHumanActualWolf()) return;
+      if (!humanPlayer.isAlive || gs.phase === GAME_PHASES.END) return;
       // 現在のドラフトを保存してから切り替え
       if (chatInput) {
         if (wolfChatModeEnabled) {
@@ -226,11 +255,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
       wolfChatModeEnabled = !wolfChatModeEnabled;
+      // 狼チャットモードに入ったら既読にする
+      if (wolfChatModeEnabled) {
+        wolfChatSeenPostCount = getWolfChatPostCount();
+      }
       // 切り替え後のドラフトを復元
       if (chatInput) {
         chatInput.value = wolfChatModeEnabled ? wolfChatDraft : normalChatDraft;
       }
-      updateWhisperButton();
+      updateRoleLabel();
       updateChatAvailability();
     });
   }
@@ -256,6 +289,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         coRole: selectedCoRole || null,
       });
       bbs.renderPost(post);
+      // 役職CO 時は自動ブックマーク
+      if (selectedCoRole) {
+        bbs.autoBookmarkPost(post.id);
+      }
+      // 人狼チャット投稿時は既読カウントを更新
+      if (wolfChatModeEnabled) {
+        wolfChatSeenPostCount = getWolfChatPostCount();
+      }
       if (chatInput) chatInput.value = '';
       if (coRoleSelect) coRoleSelect.value = '';
       // ドラフトもリセット
@@ -366,7 +407,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- フェーズUI切替 ---
   function renderPhaseUI() {
     updateHeader();
-    updateWhisperButton();
+    updateRoleLabel();
     updateChatAvailability();
     renderPlayers();
     renderChatTopActions();
@@ -395,10 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updateHeader() {
     if (phaseLabel) phaseLabel.textContent = phaseText(gs.phase);
     if (dayLabel) dayLabel.textContent = gs.day > 0 ? `${gs.day}日目` : '';
-    if (roleLabel && humanPlayer?.role) {
-      roleLabel.textContent = humanPlayer.role.icon;
-    }
-    updateWhisperButton();
+    updateRoleLabel();
     updateChatAvailability();
   }
 
@@ -907,11 +945,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderChatTopActions();
     try {
       if (gs.settings.precisionMode) {
-        // 精度向上モード: 1発言ずつ生成（最新の会話状態を反映）
+        // 精度向上モード: 1発言ずつ生成（最新の会話状態を反映）、連投で複数件返ることがある
         const genCount = Math.max(1, count);
         for (let i = 0; i < genCount; i++) {
-          const post = await precisionConversationAI.generateNext();
-          if (post) conversationBuffer.push(post);
+          const posts = await precisionConversationAI.generateNext();
+          if (posts && posts.length > 0) conversationBuffer.push(...posts);
         }
       } else {
         const result = await batchConversationAI.generateAdventure(count);
@@ -984,6 +1022,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       status: postData.status || null,
     });
     bbs.renderPost(post);
+    // 役職CO・白だし・黒だし時は自動ブックマーク
+    if (postData.coRole || (postData.verdictWhite && postData.verdictWhite.length > 0) || (postData.verdictBlack && postData.verdictBlack.length > 0)) {
+      bbs.autoBookmarkPost(post.id);
+    }
+    // wolf_chat 投稿時は通知ドットを更新
+    if (post.type === 'wolf_chat' || post.type === 'whisper') {
+      updateRoleLabel();
+    }
     renderPlayers();
     gs.save();
 

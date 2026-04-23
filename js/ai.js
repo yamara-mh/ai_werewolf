@@ -625,8 +625,8 @@ class PrecisionConversationAI {
     return aliveAiPlayers[Math.floor(Math.random() * aliveAiPlayers.length)];
   }
 
-  // 次のスピーカーの発言を1件生成して返す
-  // 戻り値: { name, talk, coRole, vote, status, verdictWhite, verdictBlack } | null
+  // 次のスピーカーの発言を1件以上生成して返す
+  // 戻り値: [{ name, talk, coRole, vote, status, verdictWhite, verdictBlack }, ...] | null
   async generateNext() {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
@@ -635,7 +635,7 @@ class PrecisionConversationAI {
     if (!speaker) return null;
 
     if (!aiApiKey) {
-      return this._fallback(speaker);
+      return [this._fallback(speaker)];
     }
 
     const systemPrompt = this._buildSystemPrompt(speaker);
@@ -651,7 +651,7 @@ class PrecisionConversationAI {
       return this._parseResponse(responseText, speaker);
     } catch (e) {
       console.warn(`精度向上モード発言生成エラー (${speaker.name}):`, e);
-      return this._fallback(speaker);
+      return [this._fallback(speaker)];
     }
   }
 
@@ -765,28 +765,64 @@ class PrecisionConversationAI {
       }
 
       const aliveNames = new Set(this.gameState.getAlivePlayers().map((p) => p.name));
-      const post = data.posts[0];
-      const statusValue = (typeof post.status === 'string' && VALID_PORTRAIT_STATUSES.has(post.status))
-        ? post.status
-        : 'default';
-      const voteValue = post.target || post.vote;
-      const verdictWhite = _normalizeVerdictNames(post.villager, aliveNames);
-      const verdictBlack = _normalizeVerdictNames(post.werewolf, aliveNames);
 
-      return {
-        name: speaker.name,
-        talk: (typeof post.talk === 'string' && post.talk.trim()) ? post.talk.trim() : null,
-        coRole: (typeof post.coRole === 'string' && post.coRole.trim()) ? post.coRole.trim() : null,
-        vote: (typeof voteValue === 'string' && aliveNames.has(voteValue) && voteValue !== speaker.name)
-          ? voteValue : null,
-        status: statusValue,
-        verdictWhite,
-        verdictBlack,
-      };
+      // 発言者の全投稿を返す（連投対応）
+      const results = data.posts.map((post) => {
+        const statusValue = (typeof post.status === 'string' && VALID_PORTRAIT_STATUSES.has(post.status))
+          ? post.status
+          : 'default';
+        const voteValue = post.target || post.vote;
+        const verdictWhite = _normalizeVerdictNames(post.villager, aliveNames);
+        const verdictBlack = _normalizeVerdictNames(post.werewolf, aliveNames);
+        return {
+          name: speaker.name,
+          talk: (typeof post.talk === 'string' && post.talk.trim()) ? post.talk.trim() : null,
+          coRole: (typeof post.coRole === 'string' && post.coRole.trim()) ? post.coRole.trim() : null,
+          vote: (typeof voteValue === 'string' && aliveNames.has(voteValue) && voteValue !== speaker.name)
+            ? voteValue : null,
+          status: statusValue,
+          verdictWhite,
+          verdictBlack,
+        };
+      }).filter((p) => p.talk || p.coRole || p.vote);
+
+      if (results.length === 0) throw new Error('有効な投稿がありません');
+      return results;
     } catch (e) {
+      // 途切れた出力から部分的に talk を抽出して投稿し、自身を次の発言者に指定
+      const partial = this._tryExtractPartialResponse(responseText, speaker);
+      if (partial) return partial;
       console.warn(`精度向上モード応答パースエラー (${speaker.name}):`, e, responseText);
-      return this._fallback(speaker);
+      return [this._fallback(speaker)];
     }
+  }
+
+  // 途切れた JSON 出力から talk を部分抽出する
+  // 成功時: [{ name, talk, ... }] を返し、nextSpeaker に自身をセット
+  // 失敗時: null を返す
+  _tryExtractPartialResponse(responseText, speaker) {
+    if (!responseText || typeof responseText !== 'string') return null;
+    const text = responseText.trim();
+    if (!text) return null;
+
+    // "talk": "..." を正規表現で抽出（文字列が途中で途切れていても可）
+    const talkMatch = text.match(/"talk"\s*:\s*"((?:[^"\\]|\\.)*)/)
+    if (!talkMatch || !talkMatch[1]) return null;
+    const partialTalk = talkMatch[1].trim();
+    if (!partialTalk) return null;
+
+    // 続きを出力させるため、自身を次の発言者に設定
+    this._nextSpeakerName = speaker.name;
+
+    return [{
+      name: speaker.name,
+      talk: partialTalk,
+      coRole: null,
+      vote: null,
+      status: 'default',
+      verdictWhite: [],
+      verdictBlack: [],
+    }];
   }
 
   _fallback(speaker) {
