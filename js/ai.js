@@ -645,7 +645,7 @@ class PrecisionConversationAI {
     try {
       const responseText = await callAI(fullPrompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 1000,
+        maxTokens: 2000,
         reasoningEffort,
       });
       return this._parseResponse(responseText, speaker);
