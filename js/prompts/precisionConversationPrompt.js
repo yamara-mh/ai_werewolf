@@ -117,18 +117,18 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, nextSpe
   lines.push('# 出力形式');
   lines.push('必ず以下のJSON形式に従って出力してください：');
   lines.push(JSON.stringify({
-    posts: [{ name: '（必須）', coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容（必須）', status: '表情（必須）', villager: { name: '白だしするプレイヤー名（省略可）' }, werewolf: { name: '黒だしするプレイヤー名（省略可）' }, vote: '投票先プレイヤー名（省略可）' }],
+    posts: [{ name: '（必須）', coRole: 'カミングアウトする役職ID（省略可）', thinking: '思考内容（省略可）', talk: '発言内容（必須）', status: '表情（必須）', villager: { name: '白だしするプレイヤー名（省略可）' }, werewolf: { name: '黒だしするプレイヤー名（省略可）' }, vote: '投票先プレイヤー名（省略可）' },
+      { name: '（必須）', talk: '複数の情報を分けて発言可能（必須）', status: '表情（必須）' }
+    ],
     nextSpeaker: '次に発言するプレイヤー名（必須）',
   }, null, 2));
 
   lines.push('');
-  lines.push('## 出力詳細');
+  lines.push('## 詳細');
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
   lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（省略可）');
-  lines.push('villager・werewolf は占い師・霊媒師・狩人をCOして明確に白だし（黒だし）する場合のみ設定する。');
-  lines.push('あなた（発言者）が複数の情報を伝えたい場合は、posts に複数件の発言を連続して追加してください。');
-  lines.push('同じ name を持つ複数の posts を続けて出力することで、連投が可能です。');
+  lines.push('villager・werewolf は役職持ちが明確に白だし（黒だし）した場合のみ設定する。');
   lines.push(`nextSpeaker には次に発言すると予想されるプレイヤー名を必ず設定すること。候補: ${nextSpeakerCandidatesText || 'なし'}`);
 
   return lines.join('\n');
