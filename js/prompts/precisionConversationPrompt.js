@@ -71,18 +71,20 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, nextSpe
   lines.push('');
 
   lines.push('# 今日のチャット');
-  if (todayPosts && todayPosts.length > 0) {
-    todayPosts.forEach((post) => lines.push(_formatPostSimple(post)));
+  // 人狼チャット（werewolfOnlySecretTalk）を通常チャットに混合して時系列で表示
+  // wolfPosts は人狼（大狼）のみ受け取る。それ以外は空配列
+  const allTodayPosts = [
+    ...todayPosts.map((p) => ({ post: p, isWolf: false })),
+    ...(wolfPosts || []).map((p) => ({ post: p, isWolf: true })),
+  ].sort((a, b) => (a.post.id || 0) - (b.post.id || 0));
+  if (allTodayPosts.length > 0) {
+    allTodayPosts.forEach(({ post, isWolf }) => {
+      lines.push(isWolf ? _formatWolfPostSimple(post) : _formatPostSimple(post));
+    });
   } else {
     lines.push('（まだ発言はありません）');
   }
   lines.push('');
-
-  if (wolfPosts && wolfPosts.length > 0) {
-    lines.push('# 人狼チャット');
-    wolfPosts.forEach((post) => lines.push(_formatPostSimple(post)));
-    lines.push('');
-  }
 
   if (seerResults && seerResults.length > 0) {
     lines.push('# 占い結果');
@@ -125,7 +127,8 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, nextSpe
   lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（省略可）');
   lines.push('villager・werewolf は占い師・霊媒師・狩人をCOして明確に白だし（黒だし）する場合のみ設定する。');
-  lines.push('発言量が多ければ posts を複数件投稿してもよい。');
+  lines.push('あなた（発言者）が複数の情報を伝えたい場合は、posts に複数件の発言を連続して追加してください。');
+  lines.push('同じ name を持つ複数の posts を続けて出力することで、連投が可能です。');
   lines.push(`nextSpeaker には次に発言すると予想されるプレイヤー名を必ず設定すること。候補: ${nextSpeakerCandidatesText || 'なし'}`);
 
   return lines.join('\n');

@@ -377,6 +377,19 @@ class BBS {
     this.seerVerdicts = { ...verdictMap };
   }
 
+  // 指定IDの投稿を自動ブックマークする（既にブックマーク済みなら何もしない）
+  autoBookmarkPost(postId) {
+    if (this.bookmarkedPostIds.has(postId)) return;
+    this.bookmarkedPostIds.add(postId);
+    const el = document.getElementById(`post-${postId}`);
+    if (!el) return;
+    const checkbox = el.querySelector('.bbs-post__bookmark-checkbox');
+    if (!checkbox) return;
+    checkbox.checked = true;
+    const row = el.querySelector('.bbs-post__row');
+    if (row) row.classList.add('bbs-post__row--bookmarked');
+  }
+
   // プレイヤーの占い結果を更新し、既存の投稿DOM要素にも反映する
   updatePlayerVerdict(playerId, verdict) {
     this.seerVerdicts[playerId] = verdict;

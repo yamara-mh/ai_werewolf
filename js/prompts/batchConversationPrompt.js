@@ -93,20 +93,23 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   lines.push('占い師は初日、白判定になる人物を無作為に一人告げられます。');
   lines.push('会議中いつでも投票、再投票できます。');
   lines.push('全員が投票したら会議は終了します。');
+  lines.push('werewolfOnlySecretTalk は人狼（大狼）だけの密談なので、絶対に閲覧できない。');
   lines.push('');
 
   lines.push('# 前日までのあらすじ');
   lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
 
-  if (wolfPosts && wolfPosts.length > 0) {
-    lines.push('# 人狼チャット');
-    wolfPosts.forEach((post) => lines.push(_formatPostSimple(post)));
-    lines.push('');
-  }
+  // 人狼チャット（werewolfOnlySecretTalk）を通常チャットに混合して時系列で表示
+  const allTodayPosts = [
+    ...todayPosts.map((p) => ({ post: p, isWolf: false })),
+    ...(wolfPosts || []).map((p) => ({ post: p, isWolf: true })),
+  ].sort((a, b) => (a.post.id || 0) - (b.post.id || 0));
 
   lines.push('# 今日のチャット');
-  todayPosts.forEach((post) => lines.push(_formatPostSimple(post)));
+  allTodayPosts.forEach(({ post, isWolf }) => {
+    lines.push(isWolf ? _formatWolfPostSimple(post) : _formatPostSimple(post));
+  });
   lines.push('');
 
   if (currentVotes && currentVotes.length > 0) {
