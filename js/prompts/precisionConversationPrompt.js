@@ -127,7 +127,8 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, nextSpe
   lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（省略可）');
   lines.push('villager・werewolf は占い師・霊媒師・狩人をCOして明確に白だし（黒だし）する場合のみ設定する。');
-  lines.push('あなた（発言者）が複数の情報を伝えたい場合、posts に複数件の発言を連続して追加してください。同じ name を持つ複数の posts を続けて出力することで、連投が可能です。');
+  lines.push('あなた（発言者）が複数の情報を伝えたい場合は、posts に複数件の発言を連続して追加してください。');
+  lines.push('同じ name を持つ複数の posts を続けて出力することで、連投が可能です。');
   lines.push(`nextSpeaker には次に発言すると予想されるプレイヤー名を必ず設定すること。候補: ${nextSpeakerCandidatesText || 'なし'}`);
 
   return lines.join('\n');

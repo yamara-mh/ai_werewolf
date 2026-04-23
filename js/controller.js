@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       bbs.renderPost(post);
       // 役職CO 時は自動ブックマーク
-      if (selectedCoRole) {
+      if (shouldAutoBookmark({ coRole: selectedCoRole })) {
         bbs.autoBookmarkPost(post.id);
       }
       // 人狼チャット投稿時は既読カウントを更新
@@ -717,6 +717,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // 役職CO・白だし・黒だしがある場合に自動ブックマーク対象かどうかを判定する
+  function shouldAutoBookmark(postData) {
+    return !!(
+      postData.coRole ||
+      (postData.verdictWhite && postData.verdictWhite.length > 0) ||
+      (postData.verdictBlack && postData.verdictBlack.length > 0)
+    );
+  }
+
   function updateBbsContainerStyle() {
     if (!bbsContainer) return;
     if (activePlayerFilterId) {
@@ -1023,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     bbs.renderPost(post);
     // 役職CO・白だし・黒だし時は自動ブックマーク
-    if (postData.coRole || (postData.verdictWhite && postData.verdictWhite.length > 0) || (postData.verdictBlack && postData.verdictBlack.length > 0)) {
+    if (shouldAutoBookmark(postData)) {
       bbs.autoBookmarkPost(post.id);
     }
     // wolf_chat 投稿時は通知ドットを更新

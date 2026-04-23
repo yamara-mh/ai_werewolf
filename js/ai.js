@@ -806,7 +806,7 @@ class PrecisionConversationAI {
     if (!text) return null;
 
     // "talk": "..." を正規表現で抽出（文字列が途中で途切れていても可）
-    const talkMatch = text.match(/"talk"\s*:\s*"((?:[^"\\]|\\.)*)/)
+    const talkMatch = text.match(/"talk"\s*:\s*"((?:[^"\\]|\\.)*)/);
     if (!talkMatch || !talkMatch[1]) return null;
     const partialTalk = talkMatch[1].trim();
     if (!partialTalk) return null;
