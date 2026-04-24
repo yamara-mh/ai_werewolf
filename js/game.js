@@ -21,7 +21,7 @@ class GameState {
       reasoningEffort: 'medium',
       roomLevel: 'intermediate',
       showLogicAi: true,
-      precisionMode: false,
+      tokenSavingMode: false,
     };
     this.logicAiOutput = '';
     // 前日までのあらすじ（夜ターンに更新）
@@ -312,6 +312,15 @@ class GameState {
       const parsed = JSON.parse(data);
       const state = new GameState();
       Object.assign(state, parsed);
+      if (state.settings && typeof state.settings === 'object') {
+        if (typeof state.settings.tokenSavingMode !== 'boolean') {
+          if (typeof state.settings.precisionMode === 'boolean') {
+            state.settings.tokenSavingMode = !state.settings.precisionMode;
+          } else {
+            state.settings.tokenSavingMode = false;
+          }
+        }
+      }
       return state;
     } catch (e) {
       console.warn('ゲーム状態の読み込みに失敗しました', e);

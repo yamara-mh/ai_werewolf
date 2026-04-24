@@ -43,6 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!raw) return;
       const data = JSON.parse(raw);
       if (!data || typeof data !== 'object') return;
+      if (typeof data['token-saving-mode'] !== 'boolean' && typeof data['precision-mode'] === 'boolean') {
+        data['token-saving-mode'] = !data['precision-mode'];
+      }
 
       const controls = Array.from(form?.elements || []);
       controls.forEach((el) => {
@@ -170,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reasoningEffort: document.getElementById('reasoning-effort')?.value || 'medium',
         roomLevel: document.getElementById('room-level')?.value || 'intermediate',
         showLogicAi: document.getElementById('show-logic-ai')?.checked ?? true,
-        precisionMode: document.getElementById('precision-mode')?.checked ?? false,
+        tokenSavingMode: document.getElementById('token-saving-mode')?.checked ?? false,
       };
       saveLobbySettings();
 
