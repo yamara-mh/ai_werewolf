@@ -767,7 +767,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (bbs.isBookmarkFilterEnabled) {
         const bookmarkNotice = document.createElement('div');
         bookmarkNotice.className = 'watch-bar__notice';
-        bookmarkNotice.textContent = 'フィルター・ブックマークフィルターが有効になっています';
+        bookmarkNotice.textContent = 'ブックマークフィルターが有効になっています';
         watchBar.appendChild(bookmarkNotice);
       }
       const watchBtn = document.createElement('button');

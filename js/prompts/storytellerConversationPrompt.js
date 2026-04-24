@@ -1,5 +1,5 @@
 // ストーリーテラーAI用プロンプト
-// 依存: js/prompts/helpers.js (_formatPostSimple)
+// 依存: js/prompts/helpers.js (_formatPostSimple, _formatWolfPostSimple)
 
 function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, currentVotes }) {
   const lines = [];
