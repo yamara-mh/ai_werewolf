@@ -45,7 +45,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {object} params.player             発言するプレイヤー
  * @param {number} params.day                現在の日数
  * @param {string} params.alivePlayersText   生存プレイヤー名（読点区切り、自分を含む）
- * @param {string} params.storyDirectionText ストーリーテラーAIが想定した次の一手
+ * @param {string} params.storyDirectionText ストーリーテラーAIが想定した今回の発言要約
  * @param {string} params.previousDaysSynopsis 前日までのあらすじ
  * @param {Array}  params.todayPosts         今日の公開チャット投稿配列
  * @param {Array}  params.wolfPosts          今日の人狼チャット投稿配列（人狼のみ参照可）

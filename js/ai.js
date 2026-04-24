@@ -12,6 +12,124 @@ function _normalizeVerdictNames(arr, aliveNames) {
   }).filter((name) => name && aliveNames.has(name));
 }
 
+function _normalizeConversationJson(responseText) {
+  const parsed = _extractJsonFromText(responseText);
+  if (Array.isArray(parsed)) {
+    return { posts: parsed, summary: null };
+  }
+  if (parsed && typeof parsed === 'object') {
+    if (Array.isArray(parsed.posts)) return parsed;
+    if (parsed.data && typeof parsed.data === 'object' && Array.isArray(parsed.data.posts)) {
+      return { posts: parsed.data.posts, summary: parsed.data.summary || null };
+    }
+    const alternatePostKeys = ['conversations', 'messages', 'talks'];
+    for (const key of alternatePostKeys) {
+      if (Array.isArray(parsed[key])) {
+        return { posts: parsed[key], summary: parsed.summary || null };
+      }
+    }
+  }
+  throw new Error('postsが配列ではありません');
+}
+
+function _extractJsonFromText(responseText) {
+  const text = String(responseText || '').trim();
+  if (!text) throw new Error('応答が空です');
+
+  const candidates = [text];
+  const codeBlocks = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
+  for (const match of codeBlocks) {
+    const body = (match[1] || '').trim();
+    if (body) candidates.unshift(body);
+  }
+
+  for (const candidate of candidates) {
+    const parsed = _tryParseJsonCandidate(candidate);
+    if (parsed !== null) return parsed;
+  }
+  throw new Error('JSONオブジェクトが見つかりません');
+}
+
+function _tryParseJsonCandidate(text) {
+  const parseMaybeNestedJson = (raw) => {
+    const first = JSON.parse(raw);
+    if (typeof first === 'string') {
+      try {
+        return JSON.parse(first);
+      } catch (_) {
+        return first;
+      }
+    }
+    return first;
+  };
+
+  try {
+    return parseMaybeNestedJson(text.trim());
+  } catch (_) {
+    // ignore
+  }
+
+  const starts = [];
+  const objectStart = text.indexOf('{');
+  if (objectStart !== -1) starts.push({ index: objectStart, open: '{', close: '}' });
+  const arrayStart = text.indexOf('[');
+  if (arrayStart !== -1) starts.push({ index: arrayStart, open: '[', close: ']' });
+  starts.sort((a, b) => a.index - b.index);
+
+  for (const { index, open, close } of starts) {
+    const end = _findMatchingClosingIndex(text, index, open, close);
+    if (end <= index) continue;
+    const sliced = text.slice(index, end + 1).trim();
+    if (!sliced) continue;
+    try {
+      return parseMaybeNestedJson(sliced);
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  return null;
+}
+
+function _findMatchingClosingIndex(text, startIndex, openChar, closeChar) {
+  if (text[startIndex] !== openChar) return -1;
+
+  let depth = 1;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = startIndex + 1; i < text.length; i += 1) {
+    const ch = text[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') inString = false;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === openChar) {
+      depth += 1;
+      continue;
+    }
+    if (ch === closeChar) {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
 // AI プレイヤーロジック
 // callAI は api.js、プロンプト構築は prompts.js で定義されています
 
@@ -306,121 +424,19 @@ class BatchConversationAI {
   }
 
   _normalizeConversationJson(responseText) {
-    const parsed = this._extractJsonFromText(responseText);
-    if (Array.isArray(parsed)) {
-      return { posts: parsed, summary: null };
-    }
-    if (parsed && typeof parsed === 'object') {
-      if (Array.isArray(parsed.posts)) return parsed;
-      if (parsed.data && typeof parsed.data === 'object' && Array.isArray(parsed.data.posts)) {
-        return { posts: parsed.data.posts, summary: parsed.data.summary || null };
-      }
-      const alternatePostKeys = ['conversations', 'messages', 'talks'];
-      for (const key of alternatePostKeys) {
-        if (Array.isArray(parsed[key])) {
-          return { posts: parsed[key], summary: parsed.summary || null };
-        }
-      }
-    }
-    throw new Error('postsが配列ではありません');
+    return _normalizeConversationJson(responseText);
   }
 
   _extractJsonFromText(responseText) {
-    const text = String(responseText || '').trim();
-    if (!text) throw new Error('応答が空です');
-
-    const candidates = [text];
-    const codeBlocks = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
-    for (const match of codeBlocks) {
-      const body = (match[1] || '').trim();
-      if (body) candidates.unshift(body);
-    }
-
-    for (const candidate of candidates) {
-      const parsed = this._tryParseJsonCandidate(candidate);
-      if (parsed !== null) return parsed;
-    }
-    throw new Error('JSONオブジェクトが見つかりません');
+    return _extractJsonFromText(responseText);
   }
 
   _tryParseJsonCandidate(text) {
-    const parseMaybeNestedJson = (raw) => {
-      const first = JSON.parse(raw);
-      if (typeof first === 'string') {
-        try {
-          return JSON.parse(first);
-        } catch (_) {
-          return first;
-        }
-      }
-      return first;
-    };
-
-    try {
-      return parseMaybeNestedJson(text.trim());
-    } catch (_) {
-      // ignore
-    }
-
-    const starts = [];
-    const objectStart = text.indexOf('{');
-    if (objectStart !== -1) starts.push({ index: objectStart, open: '{', close: '}' });
-    const arrayStart = text.indexOf('[');
-    if (arrayStart !== -1) starts.push({ index: arrayStart, open: '[', close: ']' });
-    starts.sort((a, b) => a.index - b.index);
-
-    for (const { index, open, close } of starts) {
-      const end = this._findMatchingClosingIndex(text, index, open, close);
-      if (end <= index) continue;
-      const sliced = text.slice(index, end + 1).trim();
-      if (!sliced) continue;
-      try {
-        return parseMaybeNestedJson(sliced);
-      } catch (_) {
-        // ignore
-      }
-    }
-
-    return null;
+    return _tryParseJsonCandidate(text);
   }
 
   _findMatchingClosingIndex(text, startIndex, openChar, closeChar) {
-    if (text[startIndex] !== openChar) return -1;
-
-    let depth = 1;
-    let inString = false;
-    let escaped = false;
-
-    for (let i = startIndex + 1; i < text.length; i += 1) {
-      const ch = text[i];
-
-      if (inString) {
-        if (escaped) {
-          escaped = false;
-          continue;
-        }
-        if (ch === '\\') {
-          escaped = true;
-          continue;
-        }
-        if (ch === '"') inString = false;
-        continue;
-      }
-
-      if (ch === '"') {
-        inString = true;
-        continue;
-      }
-      if (ch === openChar) {
-        depth += 1;
-        continue;
-      }
-      if (ch === closeChar) {
-        depth -= 1;
-        if (depth === 0) return i;
-      }
-    }
-    return -1;
+    return _findMatchingClosingIndex(text, startIndex, openChar, closeChar);
   }
 
   _fallback(targetPlayers) {
@@ -678,8 +694,7 @@ class PrecisionConversationAI {
   }
 
   _parseStoryResponse(responseText) {
-    const batchAI = new BatchConversationAI(this.gameState);
-    const parsed = batchAI._extractJsonFromText(responseText);
+    const parsed = _extractJsonFromText(responseText);
     const scenario = Array.isArray(parsed?.scenario)
       ? parsed.scenario
       : Array.isArray(parsed?.steps)
@@ -695,7 +710,7 @@ class PrecisionConversationAI {
         summary: typeof step.summary === 'string' ? step.summary.trim() : '',
       }));
 
-    if (steps.length === 0) throw new Error('story scenario が空です');
+    if (steps.length === 0) throw new Error('ストーリーシナリオが空です');
     return steps;
   }
 
@@ -728,7 +743,7 @@ class PrecisionConversationAI {
         continue;
       }
       if (found.isHuman) {
-        return { speaker: null, storyStep: nextStep };
+        return { speaker: null, storyStep: null };
       }
       this._storySteps.shift();
       return { speaker: found, storyStep: nextStep };

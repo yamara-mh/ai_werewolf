@@ -3,6 +3,12 @@
 
 function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, currentVotes }) {
   const lines = [];
+  const formatPublicPost = typeof _formatPostSimple === 'function'
+    ? _formatPostSimple
+    : (post) => JSON.stringify({ name: post.playerName === '★システム' ? 'GM' : post.playerName, talk: post.content || '' });
+  const formatWolfPost = typeof _formatWolfPostSimple === 'function'
+    ? _formatWolfPostSimple
+    : (post) => JSON.stringify({ name: post.playerName === '★システム' ? 'GM' : post.playerName, werewolfOnlySecretTalk: post.content || '' });
 
   lines.push('あなたは人狼ゲームのストーリーテラーです。');
   lines.push('今日の会議が投票完了までどう進むか、端的で簡潔なシナリオをJSONで作成してください。');
@@ -33,7 +39,7 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
 
   lines.push('# 今日の公開チャット');
   if (todayPosts.length > 0) {
-    todayPosts.forEach((post) => lines.push(_formatPostSimple(post)));
+    todayPosts.forEach((post) => lines.push(formatPublicPost(post)));
   } else {
     lines.push('（まだ発言はありません）');
   }
@@ -41,7 +47,7 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
 
   if (wolfPosts && wolfPosts.length > 0) {
     lines.push('# 今日の人狼チャット');
-    wolfPosts.forEach((post) => lines.push(_formatWolfPostSimple(post)));
+    wolfPosts.forEach((post) => lines.push(formatWolfPost(post)));
     lines.push('');
   }
 
