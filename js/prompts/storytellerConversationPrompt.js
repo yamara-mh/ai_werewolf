@@ -3,12 +3,13 @@
 
 function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, currentVotes }) {
   const lines = [];
+  const toSpeakerName = (post) => (post.playerName === '★システム' ? 'GM' : post.playerName);
   const formatPublicPost = typeof _formatPostSimple === 'function'
     ? _formatPostSimple
-    : (post) => JSON.stringify({ name: post.playerName === '★システム' ? 'GM' : post.playerName, talk: post.content || '' });
+    : (post) => JSON.stringify({ name: toSpeakerName(post), talk: post.content || '' });
   const formatWolfPost = typeof _formatWolfPostSimple === 'function'
     ? _formatWolfPostSimple
-    : (post) => JSON.stringify({ name: post.playerName === '★システム' ? 'GM' : post.playerName, werewolfOnlySecretTalk: post.content || '' });
+    : (post) => JSON.stringify({ name: toSpeakerName(post), werewolfOnlySecretTalk: post.content || '' });
 
   lines.push('あなたは人狼ゲームのストーリーテラーです。');
   lines.push('今日の会議が投票完了までどう進むか、端的で簡潔なシナリオをJSONで作成してください。');

@@ -619,15 +619,18 @@ class PrecisionConversationAI {
   constructor(gameState) {
     this.gameState = gameState;
     this._storySteps = [];
+    this._waitingForHumanName = null;
   }
 
   // 昼フェーズ開始時にリセット
   resetQueue() {
     this._storySteps = [];
+    this._waitingForHumanName = null;
   }
 
   invalidateStory() {
     this._storySteps = [];
+    this._waitingForHumanName = null;
   }
 
   async _refreshStory() {
@@ -731,6 +734,14 @@ class PrecisionConversationAI {
     const aliveAiPlayers = alivePlayers.filter((p) => !p.isHuman);
     if (aliveAiPlayers.length === 0) return { speaker: null, storyStep: null };
 
+    if (this._waitingForHumanName) {
+      const waitingHuman = alivePlayers.find((p) => p.name === this._waitingForHumanName && p.isHuman);
+      if (waitingHuman) {
+        return { speaker: null, storyStep: null };
+      }
+      this._waitingForHumanName = null;
+    }
+
     if (this._storySteps.length === 0) {
       await this._refreshStory();
     }
@@ -743,6 +754,8 @@ class PrecisionConversationAI {
         continue;
       }
       if (found.isHuman) {
+        this._waitingForHumanName = found.name;
+        this._storySteps.shift();
         return { speaker: null, storyStep: null };
       }
       this._storySteps.shift();
