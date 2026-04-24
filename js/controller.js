@@ -238,6 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const enabled = bbs.toggleBookmarkFilter();
       bookmarkFilterBtn.classList.toggle('btn--bookmark-active', enabled);
       updateBbsContainerStyle();
+      renderChatTopActions();
     });
   }
 
@@ -308,10 +309,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 昼フェーズ：バッファをクリアしてローディング付きで再生成
       if (gs.phase === GAME_PHASES.DAY) {
         conversationBuffer = [];
+        if (!wolfChatModeEnabled && !gs.settings.tokenSavingMode) {
+          precisionConversationAI.invalidateStory();
+        }
         setLoadingState(true);
         try {
-          // 精度向上モードでは最新の会話を反映するため1件だけ先読みする
-          const refillCount = gs.settings.precisionMode ? 1 : BUFFER_TARGET;
+          // 標準モードでは最新の会話を反映するため1件だけ先読みする
+          const refillCount = gs.settings.tokenSavingMode ? BUFFER_TARGET : 1;
           await generateConversationBuffer(refillCount);
         } finally {
           setLoadingState(false);
@@ -415,7 +419,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     switch (gs.phase) {
       case GAME_PHASES.DAY:
         if (!bufferGenerating && conversationBuffer.length === 0) {
-          const refillCount = gs.settings.precisionMode ? 1 : BUFFER_TARGET;
+          const refillCount = gs.settings.tokenSavingMode ? BUFFER_TARGET : 1;
           generateConversationBuffer(refillCount);
         }
         break;
@@ -474,13 +478,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateHeader();
     conversationBuffer = [];
 
-    // 精度向上モードのスピーカーキューをリセット
-    if (gs.settings.precisionMode) {
+    // 標準モードのストーリーキューをリセット
+    if (!gs.settings.tokenSavingMode) {
       precisionConversationAI.resetQueue();
     }
 
     // 会話バッファ生成を開始（非ブロッキング）
-    const initialCount = gs.settings.precisionMode ? 1 : BUFFER_TARGET;
+    const initialCount = gs.settings.tokenSavingMode ? BUFFER_TARGET : 1;
     generateConversationBuffer(initialCount);
     renderChatTopActions();
 
@@ -760,6 +764,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 様子を見るボタン：昼フェーズのみ表示（watch-bar に配置）
     if (gs.phase === GAME_PHASES.DAY && watchBar) {
+      if (bbs.isBookmarkFilterEnabled) {
+        const bookmarkNotice = document.createElement('div');
+        bookmarkNotice.className = 'watch-bar__notice';
+        bookmarkNotice.textContent = 'ブックマークフィルターが有効になっています';
+        watchBar.appendChild(bookmarkNotice);
+      }
       const watchBtn = document.createElement('button');
       watchBtn.type = 'button';
       watchBtn.id = 'watch-btn';
@@ -953,8 +963,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     bufferGenerating = true;
     renderChatTopActions();
     try {
-      if (gs.settings.precisionMode) {
-        // 精度向上モード: 1発言ずつ生成（最新の会話状態を反映）、連投で複数件返ることがある
+      if (!gs.settings.tokenSavingMode) {
+        // 標準モード: 1発言ずつ生成（最新の会話状態を反映）、連投で複数件返ることがある
         const genCount = Math.max(1, count);
         for (let i = 0; i < genCount; i++) {
           const posts = await precisionConversationAI.generateNext();
@@ -989,7 +999,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!postData) {
       if (!bufferGenerating) {
-        const refillCount = gs.settings.precisionMode ? 1 : BUFFER_REFILL_COUNT;
+        const refillCount = gs.settings.tokenSavingMode ? BUFFER_REFILL_COUNT : 1;
         generateConversationBuffer(refillCount);
       }
       return;
@@ -1041,10 +1051,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     renderPlayers();
     gs.save();
+    if (!gs.settings.tokenSavingMode) {
+      precisionConversationAI.invalidateStory();
+    }
 
     // バッファが少なくなったらバックグラウンドで補充
     if (conversationBuffer.length <= BUFFER_REFILL_AT && !bufferGenerating) {
-      const refillCount = gs.settings.precisionMode ? 1 : BUFFER_REFILL_COUNT;
+      const refillCount = gs.settings.tokenSavingMode ? BUFFER_REFILL_COUNT : 1;
       generateConversationBuffer(refillCount);
     }
 

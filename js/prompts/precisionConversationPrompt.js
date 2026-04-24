@@ -45,6 +45,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {object} params.player             発言するプレイヤー
  * @param {number} params.day                現在の日数
  * @param {string} params.alivePlayersText   生存プレイヤー名（読点区切り、自分を含む）
+ * @param {string} params.storyDirectionText ストーリーテラーAIが想定した今回の発言要約
  * @param {string} params.previousDaysSynopsis 前日までのあらすじ
  * @param {Array}  params.todayPosts         今日の公開チャット投稿配列
  * @param {Array}  params.wolfPosts          今日の人狼チャット投稿配列（人狼のみ参照可）
@@ -53,7 +54,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {Array}  params.mediumResults      霊媒師の霊媒結果配列 [{targetName, isWerewolf}]（霊媒師のみ参照可）
  * @param {Array}  params.currentVotes       現在の投票状況 [{voterName, targetName}]
  */
-function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, nextSpeakerCandidatesText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes }) {
+function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDirectionText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes }) {
   const lines = [];
 
   lines.push('# 生存プレイヤー');
@@ -69,6 +70,12 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, nextSpe
   lines.push('# 前日までのあらすじ');
   lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
+
+  if (storyDirectionText) {
+    lines.push('# ストーリーテラーの進行案');
+    lines.push(`${player.name}: ${storyDirectionText}`);
+    lines.push('');
+  }
 
   lines.push('# 今日のチャット');
   // 人狼チャット（werewolfOnlySecretTalk）を通常チャットに混合して時系列で表示
@@ -120,7 +127,6 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, nextSpe
     posts: [{ name: 'プレイヤー名（必須）', coRole: 'カミングアウトする役職ID（省略可）', thinking: '冷静な分析（省略可）', talk: '発言内容（必須。10～30文字）', status: '表情（必須）', villager: { name: '白だしするプレイヤー名（省略可）' }, werewolf: { name: '黒だしするプレイヤー名（省略可）' }, vote: '投票先プレイヤー名（省略可）' },
       { name: 'プレイヤー名（必須）', talk: '連投可能（必須。10～30文字）', status: '表情（必須）' }
     ],
-    nextSpeaker: '次に発言するプレイヤー名（必須）',
   }, null, 2));
 
   lines.push('');
@@ -130,7 +136,6 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, nextSpe
   lines.push('vote は投票先変更がある場合のみ設定（省略可）');
   lines.push('villager・werewolf は役職持ちが明確に白だし（黒だし）した場合のみ設定する。');
   lines.push('連投回数は性格や情報量に応じて2,3,4と増える。');
-  lines.push(`nextSpeaker には次に発言すると予想されるプレイヤー名を必ず設定すること。候補: ${nextSpeakerCandidatesText || 'なし'}`);
 
   return lines.join('\n');
 }
