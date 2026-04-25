@@ -341,6 +341,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 人間プレイヤーが投稿したのでストーリーを無効化して再生成
             precisionConversationAI.invalidateStory();
             // ストーリーテラーの再生成と会話バッファ生成を並行実行
+            // 注: これらは独立した処理。generateConversationBuffer は内部で
+            // _determineSpeaker を呼び、必要に応じて _refreshStory を実行する
+            // ため、ここで明示的に refreshStory を呼んでおくことで待ち時間を短縮
             await Promise.all([
               precisionConversationAI.refreshStory(),
               generateConversationBuffer(1)

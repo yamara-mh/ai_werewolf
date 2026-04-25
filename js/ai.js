@@ -949,22 +949,23 @@ class PrecisionConversationAI {
 
   // バックグラウンドで次の投稿を準備
   async _prepareNextInBackground() {
+    // 既に準備中または準備済みの場合は何もしない
     if (this._isPreparingNext || this._nextPreparedPosts) return;
     
+    // フラグを即座に設定して競合を防ぐ
     this._isPreparingNext = true;
+    
     try {
       const gs = this.gameState;
       const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
 
       const { speaker, storyStep } = await this._determineSpeaker();
       if (!speaker) {
-        this._isPreparingNext = false;
         return;
       }
 
       if (!aiApiKey) {
         this._nextPreparedPosts = [this._fallback(speaker)];
-        this._isPreparingNext = false;
         return;
       }
 

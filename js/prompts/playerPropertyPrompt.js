@@ -1,5 +1,38 @@
-// プレイヤー投稿プロパティ付与プロンプト
-// プレイヤーの投稿内容を受け取り、coRole, vote, villager, werewolf を付与したJSONを返す
+/**
+ * プレイヤー投稿プロパティ付与プロンプト
+ * 
+ * @description
+ * プレイヤーの投稿内容を受け取り、coRole, vote, villager, werewolf を付与したJSONを返す
+ * 
+ * @purpose
+ * 人間プレイヤーの自然な会話投稿から、ゲームの構造化データ（CO、投票、白だし、黒だし）を
+ * 自動的に抽出し、UIの簡素化とプレイ体験の向上を実現する
+ * 
+ * @usage
+ * ```javascript
+ * const prompt = buildPlayerPropertyPrompt({
+ *   player: humanPlayer,
+ *   content: "私は占い師です。Aさんは人狼でした。Bさんに投票します。",
+ *   day: 2,
+ *   alivePlayersText: "A、B、C、D",
+ *   // ... その他のパラメータ
+ * });
+ * const result = await callAI(prompt, apiKey, model, { jsonMode: true });
+ * // => { coRole: "seer", vote: "B", villager: [], werewolf: ["A"] }
+ * ```
+ * 
+ * @output
+ * {
+ *   coRole: string | null,  // カミングアウトする役職ID（例: "seer", "werewolf"）
+ *   vote: string | null,     // 投票先プレイヤー名
+ *   villager: string[],      // 白だし（村人判定）したプレイヤー名の配列
+ *   werewolf: string[]       // 黒だし（人狼判定）したプレイヤー名の配列
+ * }
+ * 
+ * @dependencies
+ * - js/config.js (ROLES, isActualWolf)
+ * - js/prompts/helpers.js (_formatPostSimple, _formatWolfPostSimple)
+ */
 
 /**
  * プレイヤー投稿にプロパティを付与するプロンプトを構築します。
