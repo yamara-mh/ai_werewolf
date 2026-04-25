@@ -1004,7 +1004,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const voterCount = Object.keys(gs.votes).filter((id) => alive.some((p) => p.id === id)).length;
 
     // 全員が投票したら会議終了
-    if (voterCount >= alive.length) {
+    if (voterCount === alive.length) {
       conversationBuffer = [];
       gs.nextPhase(); // DAY -> VOTE
       gs.save();
@@ -1049,7 +1049,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 投票が締め切られる条件（全員が投票）に達したら生成を停止
     const alive = gs.getAlivePlayers();
     const voterCount = Object.keys(gs.votes).filter((id) => alive.some((p) => p.id === id)).length;
-    if (voterCount >= alive.length) return;
+    if (voterCount === alive.length) return;
     
     // バッファが少ない場合のみ生成
     if (conversationBuffer.length <= BUFFER_REFILL_AT) {
