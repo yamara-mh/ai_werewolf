@@ -910,6 +910,11 @@ class PrecisionConversationAI {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
 
+    // バックグラウンド準備中の場合は完了まで待機
+    while (this._isPreparingNext) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     // 既に準備された投稿がある場合はそれを返す
     if (this._nextPreparedPosts && this._nextPreparedPosts.length > 0) {
       const posts = this._nextPreparedPosts;
