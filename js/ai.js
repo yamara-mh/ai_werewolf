@@ -710,7 +710,9 @@ class PrecisionConversationAI {
       .filter((step) => step && typeof step.name === 'string' && validNames.has(step.name.trim()))
       .map((step) => ({
         speaker: step.name.trim(),
-        summary: typeof step.talk === 'string' ? step.talk.trim() : '',
+        summary: typeof step.talk === 'string' ? step.talk.trim() 
+               : typeof step.summary === 'string' ? step.summary.trim() 
+               : '',
       }));
 
     if (steps.length === 0) throw new Error('ストーリーシナリオが空です');
