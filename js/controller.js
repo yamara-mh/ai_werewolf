@@ -805,6 +805,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         bookmarkNotice.textContent = 'ブックマークフィルターが有効になっています';
         watchBar.appendChild(bookmarkNotice);
       }
+      if (bbs.playerFilterId) {
+        const playerFilterNotice = document.createElement('div');
+        playerFilterNotice.className = 'watch-bar__notice';
+        playerFilterNotice.textContent = 'プレイヤーフィルターが有効になっています';
+        watchBar.appendChild(playerFilterNotice);
+      }
       const watchBtn = document.createElement('button');
       watchBtn.type = 'button';
       watchBtn.id = 'watch-btn';
