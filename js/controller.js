@@ -983,10 +983,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (gs.phase !== GAME_PHASES.DAY) return;
     const alive = gs.getAlivePlayers();
     const voterCount = Object.keys(gs.votes).filter((id) => alive.some((p) => p.id === id)).length;
-    const majority = Math.floor(alive.length / 2) + 1;
 
-    if (voterCount === majority - 1 && majority > 1) {
-      // 「あと一人投票すると投票フェーズ移行」の警告（majority - 1 = 遷移まであと1票の状態）
+    // 全員が投票したら会議終了（あと一人で全員投票の状態で警告）
+    if (voterCount === alive.length - 1 && alive.length > 1) {
       const recentSystem = gs.bbsLog.slice(-5).find(
         (p) => p.type === 'system' && p.content?.includes('あと一人が投票先を設定')
       );
@@ -1003,9 +1002,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (gs.phase !== GAME_PHASES.DAY) return false;
     const alive = gs.getAlivePlayers();
     const voterCount = Object.keys(gs.votes).filter((id) => alive.some((p) => p.id === id)).length;
-    const majority = Math.floor(alive.length / 2) + 1;
 
-    if (voterCount >= majority) {
+    // 全員が投票したら会議終了
+    if (voterCount >= alive.length) {
       conversationBuffer = [];
       gs.nextPhase(); // DAY -> VOTE
       gs.save();
@@ -1047,11 +1046,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (bufferGenerating) return;
     if (gs.phase !== GAME_PHASES.DAY) return;
     
-    // 投票が締め切られる条件（過半数が投票）に達したら生成を停止
+    // 投票が締め切られる条件（全員が投票）に達したら生成を停止
     const alive = gs.getAlivePlayers();
     const voterCount = Object.keys(gs.votes).filter((id) => alive.some((p) => p.id === id)).length;
-    const majority = Math.floor(alive.length / 2) + 1;
-    if (voterCount >= majority) return;
+    if (voterCount >= alive.length) return;
     
     // バッファが少ない場合のみ生成
     if (conversationBuffer.length <= BUFFER_REFILL_AT) {
