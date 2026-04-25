@@ -764,11 +764,11 @@ class PrecisionConversationAI {
   }
 
   // ストーリーを再生成（公開メソッド）
-  async refreshStory() {
-    return this._refreshStory();
+  async refreshStory(unreflectedPosts = null) {
+    return this._refreshStory(unreflectedPosts);
   }
 
-  async _refreshStory() {
+  async _refreshStory(unreflectedPosts = null) {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
     const alivePlayers = gs.getAlivePlayers();
@@ -816,6 +816,7 @@ class PrecisionConversationAI {
       todayPosts,
       wolfPosts,
       currentVotes,
+      unreflectedPosts,
     });
 
     try {

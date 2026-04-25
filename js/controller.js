@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // アドベンチャーモード：会話バッファ管理
   let conversationBuffer = [];
   let bufferGenerating = false;
+  let storyGenerating = false;
   let uiLocked = false;
   const BUFFER_TARGET = 10;
   const BUFFER_REFILL_AT = 5;
@@ -344,10 +345,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 注: これらは独立した処理。generateConversationBuffer は内部で
             // _determineSpeaker を呼び、必要に応じて _refreshStory を実行する
             // ため、ここで明示的に refreshStory を呼んでおくことで待ち時間を短縮
-            await Promise.all([
-              precisionConversationAI.refreshStory(),
-              generateConversationBuffer(1)
-            ]);
+            storyGenerating = true;
+            renderChatTopActions();
+            try {
+              await Promise.all([
+                precisionConversationAI.refreshStory(conversationBuffer),
+                generateConversationBuffer(1)
+              ]);
+            } finally {
+              storyGenerating = false;
+              renderChatTopActions();
+            }
           } else {
             // トークン節約モードの場合は通常通り
             const refillCount = gs.settings.tokenSavingMode ? BUFFER_TARGET : 1;
@@ -515,7 +523,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!gs.settings.tokenSavingMode) {
       precisionConversationAI.resetQueue();
       // 会議開始時にストーリーテラーを再生成
-      await precisionConversationAI.refreshStory();
+      storyGenerating = true;
+      renderChatTopActions();
+      try {
+        await precisionConversationAI.refreshStory(conversationBuffer);
+      } finally {
+        storyGenerating = false;
+        renderChatTopActions();
+      }
     }
 
     // 会話バッファ生成を開始（非ブロッキング）
@@ -817,6 +832,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       watchBtn.className = 'btn btn--watch btn--watch-bar';
       if (uiLocked) {
         watchBtn.textContent = '📖 AI生成中…';
+        watchBtn.disabled = true;
+      } else if (storyGenerating) {
+        watchBtn.textContent = '📖 AI生成中';
         watchBtn.disabled = true;
       } else if (bufferGenerating && conversationBuffer.length === 0) {
         watchBtn.textContent = '📖 読み込み中…';
