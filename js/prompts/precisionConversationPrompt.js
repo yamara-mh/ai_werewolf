@@ -85,16 +85,19 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
     ...todayPosts.map((p) => ({ post: p, isWolf: false })),
     ...(wolfPosts || []).map((p) => ({ post: p, isWolf: true })),
   ].sort((a, b) => (a.post.id || 0) - (b.post.id || 0));
+  
+  const hasUnreflectedPosts = unreflectedPosts && Array.isArray(unreflectedPosts) && unreflectedPosts.length > 0;
+  
   if (allTodayPosts.length > 0) {
     allTodayPosts.forEach(({ post, isWolf }) => {
       lines.push(isWolf ? _formatWolfPostSimple(post) : _formatPostSimple(post));
     });
-  } else {
+  } else if (!hasUnreflectedPosts) {
     lines.push('（まだ発言はありません）');
   }
   
   // 未反映の投稿（前回生成されたがまだチャットに反映されていない投稿）も含める
-  if (unreflectedPosts && Array.isArray(unreflectedPosts) && unreflectedPosts.length > 0) {
+  if (hasUnreflectedPosts) {
     unreflectedPosts.forEach((post) => {
       if (post.talk) {
         const obj = { name: post.name, talk: post.talk };
