@@ -21,7 +21,8 @@ async function callAI(userPrompt, apiKey, model, options = {}) {
     ? reasoningEffort
     : 'medium';
 
-  console.log('[LLM Input] User Prompt:\n', userPrompt);
+  const timestamp = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+  console.log(`[LLM Input] ${timestamp} User Prompt:\n`, userPrompt);
 
   if (model.startsWith('gemini-')) {
     const generationConfig = { maxOutputTokens: maxTokens, temperature: 0.8 };
@@ -51,7 +52,8 @@ async function callAI(userPrompt, apiKey, model, options = {}) {
 
     const data = await res.json();
     const geminiResult = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('\n').trim() || '';
-    console.log('[LLM Output]:\n', geminiResult);
+    const outputTimestamp = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+    console.log(`[LLM Output] ${outputTimestamp}:\n`, geminiResult);
     _appendLlmLog(model, userPrompt, geminiResult);
     return geminiResult;
   }
@@ -83,7 +85,8 @@ async function callAI(userPrompt, apiKey, model, options = {}) {
 
   const data = await res.json();
   const openAiResult = data.choices?.[0]?.message?.content?.trim() || '';
-  console.log('[LLM Output]:\n', openAiResult);
+  const outputTimestamp = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+  console.log(`[LLM Output] ${outputTimestamp}:\n`, openAiResult);
   _appendLlmLog(model, userPrompt, openAiResult);
   return openAiResult;
 }

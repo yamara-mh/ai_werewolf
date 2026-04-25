@@ -1,7 +1,7 @@
 // ストーリーテラーAI用プロンプト
 // 依存: js/prompts/helpers.js (_formatPostSimple, _formatWolfPostSimple)
 
-function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, currentVotes }) {
+function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, currentVotes, unreflectedPosts }) {
   const lines = [];
   const toSpeakerName = (post) => (post.playerName === '★システム' ? 'GM' : post.playerName);
   const formatPublicPost = typeof _formatPostSimple === 'function'
@@ -43,14 +43,28 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
     ...(wolfPosts || []).map((p) => ({ post: p, isWolf: true })),
   ].sort((a, b) => (a.post.id || 0) - (b.post.id || 0));
 
+  const hasUnreflectedPosts = unreflectedPosts && Array.isArray(unreflectedPosts) && unreflectedPosts.length > 0;
+  
   lines.push('# 今日のチャット');
   if (allTodayPosts.length > 0) {
     allTodayPosts.forEach(({ post, isWolf }) => {
       lines.push(isWolf ? formatWolfPost(post) : formatPublicPost(post));
     });
-  } else {
+  } else if (!hasUnreflectedPosts) {
     lines.push('（まだ発言はありません）');
   }
+  
+  // 未反映の投稿（前回生成されたがまだチャットに反映されていない投稿）も含める
+  if (hasUnreflectedPosts) {
+    unreflectedPosts.forEach((post) => {
+      if (post.talk) {
+        const obj = { name: post.name, talk: post.talk };
+        if (post.coRole) obj.coRole = post.coRole;
+        lines.push(JSON.stringify(obj));
+      }
+    });
+  }
+  
   lines.push('');
 
   if (currentVotes && currentVotes.length > 0) {
