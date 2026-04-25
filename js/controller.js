@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const aiPlayer = new AIPlayer(gs);
   const batchConversationAI = new BatchConversationAI(gs);
   const precisionConversationAI = new PrecisionConversationAI(gs);
+  const playerPropertyAI = new PlayerPropertyAI(gs);
   const humanPlayer = gs.getHumanPlayer();
 
   // --- UI要素 ---
@@ -26,6 +27,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const chatSubmitBtn = document.getElementById('chat-submit');
   const whisperToggleBtn = document.getElementById('whisper-mode-btn');
   const coRoleSelect = document.getElementById('co-role-select');
+  // COドロップダウンを隠す
+  if (coRoleSelect) coRoleSelect.style.display = 'none';
   const logicAiBtn = document.getElementById('logic-ai-btn');
   const bookmarkFilterBtn = document.getElementById('bookmark-filter-btn');
   const chatTopActions = document.getElementById('chat-top-actions');
@@ -277,49 +280,78 @@ document.addEventListener('DOMContentLoaded', async () => {
       const text = chatInput ? chatInput.value.trim() : '';
       if (!text) return;
 
-      const selectedCoRole = coRoleSelect ? coRoleSelect.value : '';
-      if (selectedCoRole && humanPlayer) {
-        humanPlayer.coRole = selectedCoRole;
-      }
+      // プロパティ付与プロンプトで解析とストーリーテラー再生成を並行実行
+      setLoadingState(true);
+      try {
+        const [properties] = await Promise.all([
+          playerPropertyAI.analyzePost(humanPlayer, text),
+          // ストーリーテラーの再生成を並行実行（標準モードのみ）
+          !wolfChatModeEnabled && !gs.settings.tokenSavingMode 
+            ? precisionConversationAI._refreshStory() 
+            : Promise.resolve()
+        ]);
 
-      const post = gs.addPost({
-        playerName: humanPlayer.name,
-        playerId: humanPlayer.id,
-        content: text,
-        type: wolfChatModeEnabled ? 'wolf_chat' : 'speech',
-        coRole: selectedCoRole || null,
-      });
-      bbs.renderPost(post);
-      // 役職CO 時は自動ブックマーク
-      if (shouldAutoBookmark({ coRole: selectedCoRole })) {
-        bbs.autoBookmarkPost(post.id);
-      }
-      // 人狼チャット投稿時は既読カウントを更新
-      if (wolfChatModeEnabled) {
-        wolfChatSeenPostCount = getWolfChatPostCount();
-      }
-      if (chatInput) chatInput.value = '';
-      if (coRoleSelect) coRoleSelect.value = '';
-      // ドラフトもリセット
-      if (wolfChatModeEnabled) wolfChatDraft = '';
-      else normalChatDraft = '';
-      renderPlayers();
-      gs.save();
-
-      // 昼フェーズ：バッファをクリアしてローディング付きで再生成
-      if (gs.phase === GAME_PHASES.DAY) {
-        conversationBuffer = [];
-        if (!wolfChatModeEnabled && !gs.settings.tokenSavingMode) {
-          precisionConversationAI.invalidateStory();
+        // プロパティの適用
+        const validRoleIds = new Set(Object.values(ROLES).map((r) => r.id));
+        if (properties.coRole && !humanPlayer.coRole && validRoleIds.has(properties.coRole)) {
+          humanPlayer.coRole = properties.coRole;
         }
-        setLoadingState(true);
-        try {
+
+        // 占い結果（白だし・黒だし）適用
+        if (properties.villager && properties.villager.length > 0) {
+          applyVerdicts(properties.villager, 'white');
+        }
+        if (properties.werewolf && properties.werewolf.length > 0) {
+          applyVerdicts(properties.werewolf, 'black');
+        }
+
+        // 投票先変更適用
+        if (properties.vote) {
+          const voteTarget = gs.getAlivePlayers().find(
+            (p) => p.name === properties.vote && p.id !== humanPlayer.id
+          );
+          if (voteTarget) {
+            gs.castVote(humanPlayer.id, voteTarget.id);
+            checkVoteWarning();
+          }
+        }
+
+        const post = gs.addPost({
+          playerName: humanPlayer.name,
+          playerId: humanPlayer.id,
+          content: text,
+          type: wolfChatModeEnabled ? 'wolf_chat' : 'speech',
+          coRole: humanPlayer.coRole,
+        });
+        bbs.renderPost(post);
+        // 役職CO 時は自動ブックマーク
+        if (shouldAutoBookmark({ coRole: properties.coRole, verdictWhite: properties.villager, verdictBlack: properties.werewolf })) {
+          bbs.autoBookmarkPost(post.id);
+        }
+        // 人狼チャット投稿時は既読カウントを更新
+        if (wolfChatModeEnabled) {
+          wolfChatSeenPostCount = getWolfChatPostCount();
+        }
+        if (chatInput) chatInput.value = '';
+        // ドラフトもリセット
+        if (wolfChatModeEnabled) wolfChatDraft = '';
+        else normalChatDraft = '';
+        renderPlayers();
+        gs.save();
+
+        // 昼フェーズ：バッファをクリアして再生成
+        if (gs.phase === GAME_PHASES.DAY) {
+          conversationBuffer = [];
+          if (!wolfChatModeEnabled && !gs.settings.tokenSavingMode) {
+            // ストーリーは既に再生成済み（上で並行実行）
+            precisionConversationAI.invalidateStory();
+          }
           // 標準モードでは最新の会話を反映するため1件だけ先読みする
           const refillCount = gs.settings.tokenSavingMode ? BUFFER_TARGET : 1;
           await generateConversationBuffer(refillCount);
-        } finally {
-          setLoadingState(false);
         }
+      } finally {
+        setLoadingState(false);
       }
     });
   }
@@ -345,7 +377,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateHeader();
 
   // CO セレクトは常に初期状態（なし）で表示
-  if (coRoleSelect) coRoleSelect.value = '';
+  // COドロップダウンは廃止されたので設定不要
 
   // ゲームが初めて始まる場合（朝フェーズへ）
   if (gs.phase === GAME_PHASES.SETUP) {
@@ -791,19 +823,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       watchBar.appendChild(watchBtn);
     }
 
-    // 投票ボタン：昼・投票フェーズで生存している場合は常時表示
-    if (humanPlayer.isAlive && (gs.phase === GAME_PHASES.DAY || gs.phase === GAME_PHASES.VOTE)) {
-      const voteBtn = document.createElement('button');
-      voteBtn.type = 'button';
-      voteBtn.className = 'btn btn--vote btn--sm';
-      voteBtn.disabled = uiLocked;
-      const currentVoteTarget = selectedVoteTargetId ? gs.getPlayer(selectedVoteTargetId) : null;
-      voteBtn.textContent = currentVoteTarget
-        ? `${currentVoteTarget.name}に投票`
-        : '投票';
-      voteBtn.addEventListener('click', () => showVoteModal());
-      chatTopActions.appendChild(voteBtn);
-    }
+    // 投票ボタン：廃止（プロパティ付与プロンプトで対応）
+    // 昼・投票フェーズでも投票ボタンは表示しない
 
     if (gs.phase === GAME_PHASES.NIGHT && humanPlayer.isAlive) {
       const humanRole = humanPlayer.role;

@@ -612,6 +612,130 @@ class BatchConversationAI {
   }
 }
 
+// --- プレイヤープロパティ割り当てAI ---
+// プレイヤーの投稿内容を解析し、coRole, vote, villager, werewolf を付与したJSONを返す
+
+class PlayerPropertyAI {
+  constructor(gameState) {
+    this.gameState = gameState;
+  }
+
+  // プレイヤーの投稿内容を解析してプロパティを付与
+  // 戻り値: { coRole, vote, villager, werewolf } | null
+  async analyzePost(player, content) {
+    const gs = this.gameState;
+    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
+
+    if (!aiApiKey || !content || !content.trim()) {
+      return this._fallback();
+    }
+
+    const prompt = this._buildPrompt(player, content);
+
+    try {
+      const responseText = await callAI(prompt, aiApiKey, aiModel, {
+        jsonMode: true,
+        maxTokens: 500,
+        reasoningEffort,
+      });
+      return this._parseResponse(responseText);
+    } catch (e) {
+      console.warn('プレイヤープロパティ解析エラー:', e);
+      return this._fallback();
+    }
+  }
+
+  _buildPrompt(player, content) {
+    const gs = this.gameState;
+    const role = player.role;
+    const isWolf = isActualWolf(role);
+    const isSeer = role?.id === ROLES.SEER.id;
+    const isHunter = role?.id === ROLES.HUNTER.id;
+    const isMedium = role?.id === ROLES.MEDIUM.id;
+
+    const alivePlayersText = gs.getAlivePlayers()
+      .map((p) => p.name)
+      .join('、');
+
+    const todayPosts = gs.getTodayPosts();
+
+    const wolfPosts = isWolf
+      ? gs.bbsLog.filter((p) => p.day === gs.day && (p.type === 'wolf_chat' || p.type === 'whisper'))
+      : [];
+
+    const seerResults = isSeer
+      ? gs.players
+          .filter((p) => p.seerVerdict != null)
+          .map((p) => ({ targetName: p.name, isWerewolf: p.seerVerdict === 'black' }))
+      : [];
+
+    const hunterResult = (isHunter && player.lastGuardedId)
+      ? (() => {
+          const guarded = gs.getPlayer(player.lastGuardedId);
+          return guarded ? { guardedName: guarded.name } : null;
+        })()
+      : null;
+
+    const mediumResults = isMedium
+      ? gs.players
+          .filter((p) => !p.isAlive && p.deathReason === 'execution' && p.role)
+          .map((p) => ({ targetName: p.name, isWerewolf: isSeerWerewolf(p.role) }))
+      : [];
+
+    const currentVotes = gs.getAlivePlayers()
+      .filter((p) => gs.votes[p.id])
+      .map((p) => {
+        const target = gs.getPlayer(gs.votes[p.id]);
+        return target ? { voterName: p.name, targetName: target.name } : null;
+      })
+      .filter(Boolean);
+
+    return buildPlayerPropertyPrompt({
+      player,
+      content,
+      day: gs.day,
+      alivePlayersText,
+      previousDaysSynopsis: gs.previousDaysSynopsis || '',
+      todayPosts,
+      wolfPosts,
+      seerResults,
+      hunterResult,
+      mediumResults,
+      currentVotes,
+    });
+  }
+
+  _parseResponse(responseText) {
+    try {
+      const parsed = _extractJsonFromText(responseText);
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('JSONオブジェクトではありません');
+      }
+
+      const aliveNames = new Set(this.gameState.getAlivePlayers().map((p) => p.name));
+      
+      return {
+        coRole: (typeof parsed.coRole === 'string' && parsed.coRole.trim()) ? parsed.coRole.trim() : null,
+        vote: (typeof parsed.vote === 'string' && aliveNames.has(parsed.vote)) ? parsed.vote : null,
+        villager: _normalizeVerdictNames(parsed.villager, aliveNames),
+        werewolf: _normalizeVerdictNames(parsed.werewolf, aliveNames),
+      };
+    } catch (e) {
+      console.warn('プレイヤープロパティJSONパースエラー:', e, responseText);
+      return this._fallback();
+    }
+  }
+
+  _fallback() {
+    return {
+      coRole: null,
+      vote: null,
+      villager: [],
+      werewolf: [],
+    };
+  }
+}
+
 // --- 会話精度向上AI ---
 // 1発言ずつ、発言するキャラクターが知り得る情報だけを LLM に渡して生成します
 
@@ -620,17 +744,23 @@ class PrecisionConversationAI {
     this.gameState = gameState;
     this._storySteps = [];
     this._waitingForHumanName = null;
+    this._nextPreparedPosts = null; // 次の発言者の準備済み投稿
+    this._isPreparingNext = false; // 次の発言準備中フラグ
   }
 
   // 昼フェーズ開始時にリセット
   resetQueue() {
     this._storySteps = [];
     this._waitingForHumanName = null;
+    this._nextPreparedPosts = null;
+    this._isPreparingNext = false;
   }
 
   invalidateStory() {
     this._storySteps = [];
     this._waitingForHumanName = null;
+    this._nextPreparedPosts = null;
+    this._isPreparingNext = false;
   }
 
   async _refreshStory() {
@@ -776,6 +906,15 @@ class PrecisionConversationAI {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
 
+    // 既に準備された投稿がある場合はそれを返す
+    if (this._nextPreparedPosts && this._nextPreparedPosts.length > 0) {
+      const posts = this._nextPreparedPosts;
+      this._nextPreparedPosts = null;
+      // バックグラウンドで次の投稿を準備開始
+      this._prepareNextInBackground();
+      return posts;
+    }
+
     const { speaker, storyStep } = await this._determineSpeaker();
     if (!speaker) return null;
 
@@ -793,10 +932,52 @@ class PrecisionConversationAI {
         maxTokens: 2000,
         reasoningEffort,
       });
-      return this._parseResponse(responseText, speaker);
+      const posts = this._parseResponse(responseText, speaker);
+      // バックグラウンドで次の投稿を準備開始
+      this._prepareNextInBackground();
+      return posts;
     } catch (e) {
       console.warn(`精度向上モード発言生成エラー (${speaker.name}):`, e);
       return [this._fallback(speaker)];
+    }
+  }
+
+  // バックグラウンドで次の投稿を準備
+  async _prepareNextInBackground() {
+    if (this._isPreparingNext || this._nextPreparedPosts) return;
+    
+    this._isPreparingNext = true;
+    try {
+      const gs = this.gameState;
+      const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
+
+      const { speaker, storyStep } = await this._determineSpeaker();
+      if (!speaker) {
+        this._isPreparingNext = false;
+        return;
+      }
+
+      if (!aiApiKey) {
+        this._nextPreparedPosts = [this._fallback(speaker)];
+        this._isPreparingNext = false;
+        return;
+      }
+
+      const systemPrompt = this._buildSystemPrompt(speaker);
+      const userPrompt = this._buildUserPrompt(speaker, storyStep);
+      const fullPrompt = systemPrompt + '\n\n' + userPrompt;
+
+      const responseText = await callAI(fullPrompt, aiApiKey, aiModel, {
+        jsonMode: true,
+        maxTokens: 2000,
+        reasoningEffort,
+      });
+      this._nextPreparedPosts = this._parseResponse(responseText, speaker);
+    } catch (e) {
+      console.warn('バックグラウンド発言生成エラー:', e);
+      this._nextPreparedPosts = null;
+    } finally {
+      this._isPreparingNext = false;
     }
   }
 
