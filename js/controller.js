@@ -1046,10 +1046,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderChatTopActions();
 
     if (!postData) {
-      if (!bufferGenerating) {
-        const refillCount = gs.settings.tokenSavingMode ? BUFFER_REFILL_COUNT : 1;
-        generateConversationBuffer(refillCount);
-      }
+      // バッファが空でも自動補充しない（precisionConversationPromptの同時実行を防ぐため）
       return;
     }
 
@@ -1103,11 +1100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       precisionConversationAI.invalidateStory();
     }
 
-    // バッファが少なくなったらバックグラウンドで補充
-    if (conversationBuffer.length <= BUFFER_REFILL_AT && !bufferGenerating) {
-      const refillCount = gs.settings.tokenSavingMode ? BUFFER_REFILL_COUNT : 1;
-      generateConversationBuffer(refillCount);
-    }
+    // バッファが少なくなっても自動補充しない（precisionConversationPromptの同時実行を防ぐため）
 
     checkAndTriggerVote();
   }
