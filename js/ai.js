@@ -686,7 +686,7 @@ class PrecisionConversationAI {
     try {
       const responseText = await callAI(prompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 2500,
+        maxTokens: 5000,
         reasoningEffort,
       });
       this._storySteps = this._parseStoryResponse(responseText);
@@ -707,9 +707,9 @@ class PrecisionConversationAI {
           : [];
     const validNames = new Set(this.gameState.getAlivePlayers().map((p) => p.name));
     const steps = scenario
-      .filter((step) => step && typeof step.speaker === 'string' && validNames.has(step.speaker.trim()))
+      .filter((step) => step && typeof step.name === 'string' && validNames.has(step.name.trim()))
       .map((step) => ({
-        speaker: step.speaker.trim(),
+        speaker: step.name.trim(),
         summary: typeof step.summary === 'string' ? step.summary.trim() : '',
       }));
 

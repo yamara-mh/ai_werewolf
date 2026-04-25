@@ -41,19 +41,21 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
   lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
 
+  // 人狼チャット（werewolfOnlySecretTalk）を通常チャットに混合して時系列で表示
+  const allTodayPosts = [
+    ...todayPosts.map((p) => ({ post: p, isWolf: false })),
+    ...(wolfPosts || []).map((p) => ({ post: p, isWolf: true })),
+  ].sort((a, b) => (a.post.id || 0) - (b.post.id || 0));
+
   lines.push('# 今日のチャット');
-  if (todayPosts.length > 0) {
-    todayPosts.forEach((post) => lines.push(formatPublicPost(post)));
+  if (allTodayPosts.length > 0) {
+    allTodayPosts.forEach(({ post, isWolf }) => {
+      lines.push(isWolf ? formatWolfPost(post) : formatPublicPost(post));
+    });
   } else {
     lines.push('（まだ発言はありません）');
   }
   lines.push('');
-
-  if (wolfPosts && wolfPosts.length > 0) {
-    lines.push('# 今日の人狼チャット');
-    wolfPosts.forEach((post) => lines.push(formatWolfPost(post)));
-    lines.push('');
-  }
 
   if (currentVotes && currentVotes.length > 0) {
     lines.push('# 現在の投票状況');
@@ -64,6 +66,7 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
   lines.push('# 出力の補足');
   lines.push('name は必ず生存者にすること。');
   lines.push('{#私}が操作する人物は沈黙する体で話を進めること。');
+  lines.push('まず何人が何回ずつ発言するか決めてから、scenario配列を生成すること。');
   lines.push('## 発言の要約の例');
   lines.push('私が占い師。タロウは白');
   lines.push('ジロウは初日からハナコを疑っていたので白目');
