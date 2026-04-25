@@ -352,6 +352,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 precisionConversationAI.refreshStory(conversationBuffer),
                 generateConversationBuffer(1)
               ]);
+              // 初回生成完了後、バッファが少なければ続けて生成
+              tryGenerateNextConversation();
             } finally {
               storyGenerating = false;
               renderChatTopActions();
@@ -360,6 +362,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             // トークン節約モードの場合は通常通り
             const refillCount = gs.settings.tokenSavingMode ? BUFFER_TARGET : 1;
             await generateConversationBuffer(refillCount);
+            // 初回生成完了後、バッファが少なければ続けて生成
+            tryGenerateNextConversation();
           }
         }
       } finally {
@@ -461,7 +465,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       case GAME_PHASES.DAY:
         if (!bufferGenerating && conversationBuffer.length === 0) {
           const refillCount = gs.settings.tokenSavingMode ? BUFFER_TARGET : 1;
-          generateConversationBuffer(refillCount);
+          generateConversationBuffer(refillCount).then(() => {
+            // 初回生成完了後、バッファが少なければ続けて生成
+            tryGenerateNextConversation();
+          });
         }
         break;
       case GAME_PHASES.VOTE:
@@ -535,7 +542,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 会話バッファ生成を開始（非ブロッキング）
     const initialCount = gs.settings.tokenSavingMode ? BUFFER_TARGET : 1;
-    generateConversationBuffer(initialCount);
+    generateConversationBuffer(initialCount).then(() => {
+      // 初回生成完了後、バッファが少なければ続けて生成
+      tryGenerateNextConversation();
+    });
     renderChatTopActions();
 
     gs.save();
