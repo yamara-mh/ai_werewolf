@@ -763,6 +763,11 @@ class PrecisionConversationAI {
     this._isPreparingNext = false;
   }
 
+  // ストーリーを再生成（公開メソッド）
+  async refreshStory() {
+    return this._refreshStory();
+  }
+
   async _refreshStory() {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;

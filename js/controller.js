@@ -280,16 +280,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const text = chatInput ? chatInput.value.trim() : '';
       if (!text) return;
 
-      // プロパティ付与プロンプトで解析とストーリーテラー再生成を並行実行
+      // プロパティ付与プロンプトで解析
       setLoadingState(true);
+      let properties = null;
       try {
-        const [properties] = await Promise.all([
-          playerPropertyAI.analyzePost(humanPlayer, text),
-          // ストーリーテラーの再生成を並行実行（標準モードのみ）
-          !wolfChatModeEnabled && !gs.settings.tokenSavingMode 
-            ? precisionConversationAI._refreshStory() 
-            : Promise.resolve()
-        ]);
+        properties = await playerPropertyAI.analyzePost(humanPlayer, text);
 
         // プロパティの適用
         const validRoleIds = new Set(Object.values(ROLES).map((r) => r.id));
@@ -343,12 +338,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (gs.phase === GAME_PHASES.DAY) {
           conversationBuffer = [];
           if (!wolfChatModeEnabled && !gs.settings.tokenSavingMode) {
-            // ストーリーは既に再生成済み（上で並行実行）
+            // 人間プレイヤーが投稿したのでストーリーを無効化して再生成
             precisionConversationAI.invalidateStory();
+            // ストーリーテラーの再生成と会話バッファ生成を並行実行
+            await Promise.all([
+              precisionConversationAI.refreshStory(),
+              generateConversationBuffer(1)
+            ]);
+          } else {
+            // トークン節約モードの場合は通常通り
+            const refillCount = gs.settings.tokenSavingMode ? BUFFER_TARGET : 1;
+            await generateConversationBuffer(refillCount);
           }
-          // 標準モードでは最新の会話を反映するため1件だけ先読みする
-          const refillCount = gs.settings.tokenSavingMode ? BUFFER_TARGET : 1;
-          await generateConversationBuffer(refillCount);
         }
       } finally {
         setLoadingState(false);
