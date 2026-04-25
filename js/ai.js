@@ -919,8 +919,8 @@ class PrecisionConversationAI {
     if (this._nextPreparedPosts && this._nextPreparedPosts.length > 0) {
       const posts = this._nextPreparedPosts;
       this._nextPreparedPosts = null;
-      // バックグラウンドで次の投稿を準備開始
-      this._prepareNextInBackground();
+      // バックグラウンドで次の投稿を準備開始（今返した投稿を未反映として渡す）
+      this._prepareNextInBackground(posts);
       return posts;
     }
 
@@ -942,8 +942,8 @@ class PrecisionConversationAI {
         reasoningEffort,
       });
       const posts = this._parseResponse(responseText, speaker);
-      // バックグラウンドで次の投稿を準備開始
-      this._prepareNextInBackground();
+      // バックグラウンドで次の投稿を準備開始（今返した投稿を未反映として渡す）
+      this._prepareNextInBackground(posts);
       return posts;
     } catch (e) {
       console.warn(`精度向上モード発言生成エラー (${speaker.name}):`, e);
@@ -952,7 +952,7 @@ class PrecisionConversationAI {
   }
 
   // バックグラウンドで次の投稿を準備
-  async _prepareNextInBackground() {
+  async _prepareNextInBackground(previouslyReturnedPosts = null) {
     // 既に準備中または準備済みの場合は何もしない
     if (this._isPreparingNext || this._nextPreparedPosts) return;
     
@@ -974,10 +974,9 @@ class PrecisionConversationAI {
       }
 
       const systemPrompt = this._buildSystemPrompt(speaker);
-      // 現在準備済みの投稿（_nextPreparedPosts）をまだ反映されていない投稿として渡す
-      // これにより、次の投稿を準備する際に前回の投稿も「# 今日のチャット」に含められる
-      const currentPreparedPosts = this._nextPreparedPosts;
-      const userPrompt = this._buildUserPrompt(speaker, storyStep, currentPreparedPosts);
+      // previouslyReturnedPosts は直前に generateNext() で返された投稿で、
+      // まだ bbsLog に反映されていない未反映の投稿として扱う
+      const userPrompt = this._buildUserPrompt(speaker, storyStep, previouslyReturnedPosts);
       const fullPrompt = systemPrompt + '\n\n' + userPrompt;
 
       const responseText = await callAI(fullPrompt, aiApiKey, aiModel, {
