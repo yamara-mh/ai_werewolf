@@ -1028,6 +1028,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // バッファが少なく、全員が投票していない場合に会話を1つ生成する
+  function tryGenerateNextConversation() {
+    if (bufferGenerating) return;
+    if (gs.phase !== GAME_PHASES.DAY) return;
+    
+    // 全員が投票したかチェック
+    const alive = gs.getAlivePlayers();
+    const voterCount = Object.keys(gs.votes).filter((id) => alive.some((p) => p.id === id)).length;
+    const majority = Math.floor(alive.length / 2) + 1;
+    if (voterCount >= majority) return; // 全員投票済みなら生成しない
+    
+    // バッファが少ない場合のみ生成
+    if (conversationBuffer.length <= BUFFER_REFILL_AT) {
+      generateConversationBuffer(1).then(() => {
+        // 生成完了後、まだバッファが少なければ続けて生成
+        tryGenerateNextConversation();
+      });
+    }
+  }
+
   // --- バッファから次の投稿を表示 ---
   async function revealNextPost() {
     if (uiLocked || gs.phase !== GAME_PHASES.DAY) return;
@@ -1046,7 +1066,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderChatTopActions();
 
     if (!postData) {
-      // バッファが空でも自動補充しない（precisionConversationPromptの同時実行を防ぐため）
+      // バッファが空なら次の会話を生成開始
+      tryGenerateNextConversation();
       return;
     }
 
@@ -1100,7 +1121,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       precisionConversationAI.invalidateStory();
     }
 
-    // バッファが少なくなっても自動補充しない（precisionConversationPromptの同時実行を防ぐため）
+    // バッファが少ない場合、次の会話を生成開始
+    tryGenerateNextConversation();
 
     checkAndTriggerVote();
   }
