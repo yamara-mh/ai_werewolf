@@ -879,9 +879,8 @@ class PrecisionConversationAI {
       this._waitingForHumanName = null;
     }
 
-    if (this._storySteps.length === 0) {
-      await this._refreshStory();
-    }
+    // ストーリーステップが空の場合は自動再生成しない
+    // （会議開始時と、プレイヤー投稿時のみ明示的に refreshStory が呼ばれる）
 
     while (this._storySteps.length > 0) {
       const nextStep = this._storySteps[0];
