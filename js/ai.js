@@ -974,7 +974,10 @@ class PrecisionConversationAI {
       }
 
       const systemPrompt = this._buildSystemPrompt(speaker);
-      const userPrompt = this._buildUserPrompt(speaker, storyStep);
+      // 現在準備済みの投稿（_nextPreparedPosts）をまだ反映されていない投稿として渡す
+      // これにより、次の投稿を準備する際に前回の投稿も「# 今日のチャット」に含められる
+      const currentPreparedPosts = this._nextPreparedPosts;
+      const userPrompt = this._buildUserPrompt(speaker, storyStep, currentPreparedPosts);
       const fullPrompt = systemPrompt + '\n\n' + userPrompt;
 
       const responseText = await callAI(fullPrompt, aiApiKey, aiModel, {
@@ -1009,7 +1012,7 @@ class PrecisionConversationAI {
     return buildPrecisionSystemPrompt(speaker, teammates, roomLevelPrompt, sharedPartner);
   }
 
-  _buildUserPrompt(speaker, storyStep = null) {
+  _buildUserPrompt(speaker, storyStep = null, unreflectedPosts = null) {
     const gs = this.gameState;
     const role = speaker.role;
     const isWolf = isActualWolf(role);
@@ -1073,6 +1076,7 @@ class PrecisionConversationAI {
       hunterResult,
       mediumResults,
       currentVotes,
+      unreflectedPosts,
     });
   }
 

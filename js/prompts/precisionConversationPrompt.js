@@ -53,8 +53,9 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {object|null} params.hunterResult  騎士の護衛結果 {guardedName}（騎士のみ参照可）
  * @param {Array}  params.mediumResults      霊媒師の霊媒結果配列 [{targetName, isWerewolf}]（霊媒師のみ参照可）
  * @param {Array}  params.currentVotes       現在の投票状況 [{voterName, targetName}]
+ * @param {Array}  params.unreflectedPosts   前回生成されたがまだチャットに反映されていない投稿配列（省略可）
  */
-function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDirectionText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes }) {
+function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDirectionText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes, unreflectedPosts }) {
   const lines = [];
 
   lines.push('# 生存プレイヤー');
@@ -91,6 +92,18 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   } else {
     lines.push('（まだ発言はありません）');
   }
+  
+  // 未反映の投稿（前回生成されたがまだチャットに反映されていない投稿）も含める
+  if (unreflectedPosts && Array.isArray(unreflectedPosts) && unreflectedPosts.length > 0) {
+    unreflectedPosts.forEach((post) => {
+      if (post.talk) {
+        const obj = { name: post.name, talk: post.talk };
+        if (post.coRole) obj.coRole = post.coRole;
+        lines.push(JSON.stringify(obj));
+      }
+    });
+  }
+  
   lines.push('');
 
   if (seerResults && seerResults.length > 0) {
