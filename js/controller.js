@@ -1038,23 +1038,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // バッファが少なく、全員が投票していない場合に会話を1つ生成する
+  /**
+   * バッファが少なく、投票が締め切られていない場合に会話を1つ生成する。
+   * 生成完了後、まだバッファが少なければ自動的に次の生成を開始する。
+   * これにより、precisionConversationPromptを1つずつ順次実行する。
+   */
   function tryGenerateNextConversation() {
     if (bufferGenerating) return;
     if (gs.phase !== GAME_PHASES.DAY) return;
     
-    // 全員が投票したかチェック
+    // 投票が締め切られる条件（過半数が投票）に達したら生成を停止
     const alive = gs.getAlivePlayers();
     const voterCount = Object.keys(gs.votes).filter((id) => alive.some((p) => p.id === id)).length;
     const majority = Math.floor(alive.length / 2) + 1;
-    if (voterCount >= majority) return; // 全員投票済みなら生成しない
+    if (voterCount >= majority) return;
     
     // バッファが少ない場合のみ生成
     if (conversationBuffer.length <= BUFFER_REFILL_AT) {
-      generateConversationBuffer(1).then(() => {
-        // 生成完了後、まだバッファが少なければ続けて生成
-        tryGenerateNextConversation();
-      });
+      generateConversationBuffer(1)
+        .then(() => {
+          // 生成完了後、まだバッファが少なければ続けて生成
+          tryGenerateNextConversation();
+        })
+        .catch((error) => {
+          console.error('会話生成エラー:', error);
+          // エラー発生時は生成チェーンを停止
+        });
     }
   }
 
