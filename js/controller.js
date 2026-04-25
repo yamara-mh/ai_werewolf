@@ -380,9 +380,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   bbs.renderAll(gs.bbsLog);
   updateHeader();
 
-  // CO セレクトは常に初期状態（なし）で表示
-  // COドロップダウンは廃止されたので設定不要
-
   // ゲームが初めて始まる場合（朝フェーズへ）
   if (gs.phase === GAME_PHASES.SETUP) {
     await startGame();
