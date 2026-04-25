@@ -55,6 +55,8 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
   }
   
   // 未反映の投稿（前回生成されたがまだチャットに反映されていない投稿）も含める
+  // 注: unreflectedPosts は _parseResponse の戻り値で、bbsLog とは異なる構造
+  // { name, talk, coRole, ... } という形式なので、直接 JSON.stringify する
   if (hasUnreflectedPosts) {
     unreflectedPosts.forEach((post) => {
       if (post.talk) {
