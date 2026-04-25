@@ -53,8 +53,9 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {object|null} params.hunterResult  騎士の護衛結果 {guardedName}（騎士のみ参照可）
  * @param {Array}  params.mediumResults      霊媒師の霊媒結果配列 [{targetName, isWerewolf}]（霊媒師のみ参照可）
  * @param {Array}  params.currentVotes       現在の投票状況 [{voterName, targetName}]
+ * @param {Array}  params.unreflectedPosts   前回生成されたがまだチャットに反映されていない投稿配列（省略可）
  */
-function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDirectionText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes }) {
+function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDirectionText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes, unreflectedPosts }) {
   const lines = [];
 
   lines.push('# 生存プレイヤー');
@@ -84,13 +85,30 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
     ...todayPosts.map((p) => ({ post: p, isWolf: false })),
     ...(wolfPosts || []).map((p) => ({ post: p, isWolf: true })),
   ].sort((a, b) => (a.post.id || 0) - (b.post.id || 0));
+  
+  const hasUnreflectedPosts = unreflectedPosts && Array.isArray(unreflectedPosts) && unreflectedPosts.length > 0;
+  
   if (allTodayPosts.length > 0) {
     allTodayPosts.forEach(({ post, isWolf }) => {
       lines.push(isWolf ? _formatWolfPostSimple(post) : _formatPostSimple(post));
     });
-  } else {
+  } else if (!hasUnreflectedPosts) {
     lines.push('（まだ発言はありません）');
   }
+  
+  // 未反映の投稿（前回生成されたがまだチャットに反映されていない投稿）も含める
+  // 注: unreflectedPosts は _parseResponse の戻り値で、bbsLog とは異なる構造
+  // { name, talk, coRole, ... } という形式なので、直接 JSON.stringify する
+  if (hasUnreflectedPosts) {
+    unreflectedPosts.forEach((post) => {
+      if (post.talk) {
+        const obj = { name: post.name, talk: post.talk };
+        if (post.coRole) obj.coRole = post.coRole;
+        lines.push(JSON.stringify(obj));
+      }
+    });
+  }
+  
   lines.push('');
 
   if (seerResults && seerResults.length > 0) {
