@@ -511,9 +511,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateHeader();
     conversationBuffer = [];
 
-    // 標準モードのストーリーキューをリセット
+    // 標準モードのストーリーキューをリセットして再生成
     if (!gs.settings.tokenSavingMode) {
       precisionConversationAI.resetQueue();
+      // 会議開始時にストーリーテラーを再生成
+      precisionConversationAI.refreshStory();
     }
 
     // 会話バッファ生成を開始（非ブロッキング）
