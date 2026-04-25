@@ -11,9 +11,9 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
     ? _formatWolfPostSimple
     : (post) => JSON.stringify({ name: toSpeakerName(post), werewolfOnlySecretTalk: post.content || '' });
 
-  lines.push('あなたは人狼ゲームのストーリーテラーです。');
-  lines.push('今日の会議で投票が完了するまでのシナリオをJSONで作成してください。');
-  lines.push('{#私}が操作する人物は沈黙する体で話を進めてください。');
+  lines.push('あなたは人狼ゲームの監督です。');
+  lines.push('今日のチャットの先の展開を予想し、JSONで結果を生成してください。');
+  lines.push('論理的で面白い予想を心がけ、投票完了まで予想し切ってください。');
   lines.push('');
 
   lines.push('# 人物一覧');
@@ -21,7 +21,7 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
     lines.push(`## ${name}`);
     lines.push(`役職: ${role?.name || '不明'}`);
     lines.push(`生存: ${isAlive ? '生存' : '死亡'}`);
-    if (isHuman) lines.push(`※この人物の発言は{#私}が担当します。`);
+    if (isHuman) lines.push(`※この人物は{#私}です`);
     if (personality) lines.push(`性格: ${personality}`);
     if (currentVote) lines.push(`現在の投票先: ${currentVote}`);
   });
@@ -31,10 +31,6 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
   lines.push('占い師は初日、白判定になる人物を無作為に一人告げられます。');
   lines.push('会議中いつでも投票、再投票できます。');
   lines.push('全員が投票したら会議は終了します。');
-  lines.push('');
-
-  lines.push('# 人狼の心得');
-  lines.push('占い師は初日、白判定になる人物を無作為に一人告げられます。');
   lines.push('');
 
   lines.push('# 前日までのあらすじ');
@@ -64,19 +60,17 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
   }
 
   lines.push('# 出力の補足');
-  lines.push('name は必ず生存者にすること。');
-  lines.push('{#私}が操作する人物は沈黙する体で話を進めること。');
-  lines.push('まず何人が何回ずつ発言するか決めてから、scenario配列を生成すること。');
-  lines.push('## 発言の要約の例');
-  lines.push('私が占い師。タロウは白');
-  lines.push('ジロウは初日からハナコを疑っていたので白目');
-  lines.push('');
+  lines.push('name は必ず生存者のみになります。');
+  lines.push('{#私}は沈黙する体で展開を予想してください。');
+  lines.push('thinking と talk はそれぞれ5～30文字前後で、冷静で論理的な体言止めにしてください。');
 
   lines.push('# 出力形式');
   lines.push(JSON.stringify({
     scenario: [
-      { name: '人物名', summary: '発言の要約' },
-      { name: '人物名', summary: '発言の要約' },
+      { thinking: '次の発言者を予想する考察'},
+      { name: '人物名', talk: '発言' },
+      { thinking: '次の発言者を予想する考察'},
+      { name: '人物名', talk: '発言' },
     ],
   }, null, 2));
   lines.push('');

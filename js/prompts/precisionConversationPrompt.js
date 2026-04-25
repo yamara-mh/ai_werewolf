@@ -121,21 +121,21 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
     lines.push('');
   }
 
+  lines.push('');
+  lines.push('# 出力の補足');
+  lines.push(`coRole の値は次のいずれか（省略可）: villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
+  lines.push(`status の値は次のいずれか: default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
+  lines.push('vote は投票先変更がある場合のみ設定（省略可）');
+  lines.push('villager, werewolf は役職持ちが明確に白だし（黒だし）した場合のみ設定する。');
+  lines.push('post の配列数は発言の情報量や性格に応じて1～5回ほどにする。');
+
   lines.push('# 出力形式');
-  lines.push('必ず以下のJSON形式に従って出力してください：');
+  lines.push('必ず以下のJSON形式に従って出力してください:');
   lines.push(JSON.stringify({
     posts: [{ name: 'プレイヤー名（必須）', thinking: '冷静な分析（省略可）', coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容（必須。10～30文字）', status: '表情（必須）', villager: { name: '白だしするプレイヤー名（省略可）' }, werewolf: { name: '黒だしするプレイヤー名（省略可）' }, vote: '投票先プレイヤー名（省略可）' },
-      { name: 'プレイヤー名（必須）', talk: '連投可能（必須。10～30文字）', status: '表情（必須）' }
+      { name: 'プレイヤー名', talk: '発言内容（10～30文字）', status: '表情' }
     ],
   }, null, 2));
-
-  lines.push('');
-  lines.push('## 詳細');
-  lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);
-  lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
-  lines.push('vote は投票先変更がある場合のみ設定（省略可）');
-  lines.push('villager・werewolf は役職持ちが明確に白だし（黒だし）した場合のみ設定する。');
-  lines.push('連投回数は性格や情報量に応じて2,3,4と増える。');
 
   return lines.join('\n');
 }
