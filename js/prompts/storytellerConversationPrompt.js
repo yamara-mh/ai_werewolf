@@ -12,33 +12,36 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
     : (post) => JSON.stringify({ name: toSpeakerName(post), werewolfOnlySecretTalk: post.content || '' });
 
   lines.push('あなたは人狼ゲームのストーリーテラーです。');
-  lines.push('今日の会議が投票完了までどう進むか、端的で簡潔なシナリオをJSONで作成してください。');
-  lines.push('発言順が分かることを最優先し、summary は短い日本語で書いてください。');
-  lines.push('人間プレイヤーも speaker に含めて構いません。');
+  lines.push('今日の会議で投票が完了するまでのシナリオをJSONで作成してください。');
+  lines.push('{#私}が操作する人物は沈黙する体で話を進めてください。');
   lines.push('');
 
-  lines.push('# 今日');
-  lines.push(`day ${day}`);
-  lines.push('');
-
-  lines.push('# プレイヤー一覧');
+  lines.push('# 人物一覧');
   allPlayers.forEach(({ name, role, isAlive, isHuman, personality, firstPersonPronouns, speakingStyle, currentVote }) => {
     lines.push(`## ${name}`);
     lines.push(`役職: ${role?.name || '不明'}`);
     lines.push(`生存: ${isAlive ? '生存' : '死亡'}`);
-    lines.push(`操作: ${isHuman ? '人間' : 'AI'}`);
+    if (isHuman) lines.push(`※この人物の発言は{#私}が担当します。`);
     if (personality) lines.push(`性格: ${personality}`);
-    if (firstPersonPronouns) lines.push(`一人称: ${firstPersonPronouns}`);
-    if (speakingStyle) lines.push(`話し方: ${speakingStyle}`);
     if (currentVote) lines.push(`現在の投票先: ${currentVote}`);
   });
+  lines.push('');
+
+  lines.push('# 留意点');
+  lines.push('占い師は初日、白判定になる人物を無作為に一人告げられます。');
+  lines.push('会議中いつでも投票、再投票できます。');
+  lines.push('全員が投票したら会議は終了します。');
+  lines.push('');
+
+  lines.push('# 人狼の心得');
+  lines.push('占い師は初日、白判定になる人物を無作為に一人告げられます。');
   lines.push('');
 
   lines.push('# 前日までのあらすじ');
   lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
 
-  lines.push('# 今日の公開チャット');
+  lines.push('# 今日のチャット');
   if (todayPosts.length > 0) {
     todayPosts.forEach((post) => lines.push(formatPublicPost(post)));
   } else {
@@ -58,17 +61,22 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
     lines.push('');
   }
 
+  lines.push('# 出力の補足');
+  lines.push('name は必ず生存者にすること。');
+  lines.push('{#私}が操作する人物は沈黙する体で話を進めること。');
+  lines.push('## 発言の要約の例');
+  lines.push('私が占い師。タロウは白');
+  lines.push('ジロウは初日からハナコを疑っていたので白目');
+  lines.push('');
+
   lines.push('# 出力形式');
   lines.push(JSON.stringify({
     scenario: [
-      { speaker: 'プレイヤー名', summary: '短い発言要約' },
-      { speaker: 'プレイヤー名', summary: '短い発言要約' },
+      { name: '人物名', summary: '発言の要約' },
+      { name: '人物名', summary: '発言の要約' },
     ],
   }, null, 2));
   lines.push('');
-  lines.push('scenario はこのあとの想定順に並べること。');
-  lines.push('speaker は必ず実在するプレイヤー名にすること。');
-  lines.push('summary は10〜25文字程度の短い日本語にすること。');
 
   return lines.join('\n');
 }

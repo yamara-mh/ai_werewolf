@@ -124,7 +124,7 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push('# 出力形式');
   lines.push('必ず以下のJSON形式に従って出力してください：');
   lines.push(JSON.stringify({
-    posts: [{ name: 'プレイヤー名（必須）', coRole: 'カミングアウトする役職ID（省略可）', thinking: '冷静な分析（省略可）', talk: '発言内容（必須。10～30文字）', status: '表情（必須）', villager: { name: '白だしするプレイヤー名（省略可）' }, werewolf: { name: '黒だしするプレイヤー名（省略可）' }, vote: '投票先プレイヤー名（省略可）' },
+    posts: [{ name: 'プレイヤー名（必須）', thinking: '冷静な分析（省略可）', coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容（必須。10～30文字）', status: '表情（必須）', villager: { name: '白だしするプレイヤー名（省略可）' }, werewolf: { name: '黒だしするプレイヤー名（省略可）' }, vote: '投票先プレイヤー名（省略可）' },
       { name: 'プレイヤー名（必須）', talk: '連投可能（必須。10～30文字）', status: '表情（必須）' }
     ],
   }, null, 2));
