@@ -212,7 +212,7 @@ async function loadPersonalitiesFromTsv(tsvPath = 'personality/PromptSheet.tsv')
       return {
         name,
         personality,
-        individuality: (row.individuality || row.character || '').trim(),
+        individuality: (row.individuality || '').trim(),
         firstPersonPronouns: (row.firstPersonPronouns || '').trim(),
         speakingStyle: (row.speakingStyle || '').trim(),
       };
