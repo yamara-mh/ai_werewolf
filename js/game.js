@@ -107,7 +107,11 @@ class GameState {
     if (this.initialSeerReveal?.targetId) {
       const existingTarget = this.getPlayer(this.initialSeerReveal.targetId);
       if (existingTarget) {
-        const verdict = this.initialSeerReveal.verdict || 'white';
+        const verdict = this.initialSeerReveal.verdict;
+        if (verdict !== 'white' && verdict !== 'black') {
+          console.warn('initialSeerReveal.verdict が不正です', this.initialSeerReveal);
+          return null;
+        }
         existingTarget.seerVerdict = verdict;
         return { target: existingTarget, verdict };
       }
