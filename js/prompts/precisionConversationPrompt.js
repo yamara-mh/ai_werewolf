@@ -89,9 +89,8 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
 
   if (hunterResult) {
     lines.push('# 護衛結果（全日程）');
-    (hunterResult.guardedNames || (hunterResult.guardedName ? [hunterResult.guardedName] : [])).forEach((name) => {
-      lines.push(`${name} を護衛しました`);
-    });
+    const names = hunterResult.guardedNames || (hunterResult.guardedName ? [hunterResult.guardedName] : []);
+    names.forEach((name) => lines.push(`${name} を護衛しました`));
     lines.push('');
   }
 

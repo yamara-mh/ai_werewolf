@@ -133,6 +133,29 @@ function _findMatchingClosingIndex(text, startIndex, openChar, closeChar) {
 // AI プレイヤーロジック
 // callAI は api.js、プロンプト構築は prompts.js で定義されています
 
+/**
+ * 騎士の護衛履歴からhunterResultオブジェクトを構築するヘルパー。
+ * @param {boolean} isHunter
+ * @param {object} player
+ * @param {GameState} gs
+ * @returns {{ guardedNames: string[] } | null}
+ */
+function _buildHunterResult(isHunter, player, gs) {
+  if (!isHunter) return null;
+  if (Array.isArray(player.guardedIds) && player.guardedIds.length > 0) {
+    const names = player.guardedIds
+      .map((id) => gs.getPlayer(id))
+      .filter(Boolean)
+      .map((p) => p.name);
+    return names.length > 0 ? { guardedNames: names } : null;
+  }
+  if (player.lastGuardedId) {
+    const guarded = gs.getPlayer(player.lastGuardedId);
+    return guarded ? { guardedNames: [guarded.name] } : null;
+  }
+  return null;
+}
+
 // --- AIプレイヤー（夜アクション専用） ---
 
 class AIPlayer {
@@ -660,19 +683,7 @@ class PlayerPropertyAI {
           .map((p) => ({ targetName: p.name, isWerewolf: p.seerVerdict === 'black' }))
       : [];
 
-    const hunterResult = (isHunter && Array.isArray(player.guardedIds) && player.guardedIds.length > 0)
-      ? {
-          guardedNames: player.guardedIds
-            .map((id) => gs.getPlayer(id))
-            .filter(Boolean)
-            .map((p) => p.name),
-        }
-      : (isHunter && player.lastGuardedId)
-        ? (() => {
-            const guarded = gs.getPlayer(player.lastGuardedId);
-            return guarded ? { guardedNames: [guarded.name] } : null;
-          })()
-        : null;
+    const hunterResult = _buildHunterResult(isHunter, player, gs);
 
     const mediumResults = isMedium
       ? gs.players
@@ -996,19 +1007,7 @@ class PrecisionConversationAI {
       : [];
 
     // 騎士のみ全日程の護衛対象を知っている
-    const hunterResult = (isHunter && Array.isArray(speaker.guardedIds) && speaker.guardedIds.length > 0)
-      ? {
-          guardedNames: speaker.guardedIds
-            .map((id) => gs.getPlayer(id))
-            .filter(Boolean)
-            .map((p) => p.name),
-        }
-      : (isHunter && speaker.lastGuardedId)
-        ? (() => {
-            const guarded = gs.getPlayer(speaker.lastGuardedId);
-            return guarded ? { guardedNames: [guarded.name] } : null;
-          })()
-        : null;
+    const hunterResult = _buildHunterResult(isHunter, speaker, gs);
 
     // 霊媒師のみ処刑済みプレイヤーの役職を知っている
     const mediumResults = isMedium
