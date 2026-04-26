@@ -44,7 +44,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {object} params
  * @param {object} params.player             発言するプレイヤー
  * @param {number} params.day                現在の日数
- * @param {string} params.alivePlayersText   生存プレイヤー名（読点区切り、自分を含む）
+ * @param {string} params.alivePlayersText   生存人物名（読点区切り、自分を含む）
  * @param {string} params.storyDirectionText ストーリーテラーAIが想定した今回の発言要約
  * @param {string} params.previousDaysSynopsis 前日までのあらすじ
  * @param {Array}  params.todayPosts         今日の公開チャット投稿配列
@@ -150,8 +150,8 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push('# 出力形式');
   lines.push('必ず以下のJSON形式に従って出力してください:');
   lines.push(JSON.stringify({
-    posts: [{ name: 'プレイヤー名（必須）', thinking: '冷静な分析（省略可）', coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容（必須。10～30文字）', status: '表情（必須）', villager: { name: '白だしするプレイヤー名（省略可）' }, werewolf: { name: '黒だしするプレイヤー名（省略可）' }, vote: '投票先プレイヤー名（省略可）' },
-      { name: 'プレイヤー名', talk: '発言内容（10～30文字）', status: '表情' }
+    posts: [{ name: '人物名（必須）', thinking: '冷静な分析（省略可）', coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容（必須。10～30文字）', status: '表情（必須）', villager: { name: '白だしする人物名（省略可）' }, werewolf: { name: '黒だしする人物名（省略可）' }, vote: '投票先人物名（省略可）' },
+      { name: '人物名', talk: '発言内容（10～30文字）', status: '表情' },
     ],
   }, null, 2));
 

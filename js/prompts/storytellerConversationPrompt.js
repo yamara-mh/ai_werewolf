@@ -77,15 +77,15 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
 
   lines.push('# 出力の補足');
   lines.push('name は必ず生存者のみになります。');
-  lines.push('{#私}は沈黙する体で展開を予想してください。');
-  lines.push('thinking と talk はそれぞれ5～30文字前後で、冷静で論理的な体言止めにしてください。');
+  lines.push('予想の中では、{#私}は沈黙すると仮定してください。');
+  lines.push('thinking, talk はそれぞれ5～30文字前後で、冷静で論理的な体言止めにしてください。');
 
   lines.push('# 出力形式');
   lines.push(JSON.stringify({
     scenario: [
-      { thinking: '次の発言者を予想する考察'},
+      { thinking: '次の発言者と立ち回りの考察'},
       { name: '人物名', talk: '発言' },
-      { thinking: '次の発言者を予想する考察'},
+      { thinking: '考察'},
       { name: '人物名', talk: '発言' },
     ],
   }, null, 2));

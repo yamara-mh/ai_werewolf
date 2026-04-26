@@ -268,16 +268,10 @@ class AIPlayer {
 
     const speeches = {
       [GAME_PHASES.DAY]: [
-        `う〜ん、誰が怪しいかな…`,
-        `みんな落ち着いて議論しましょう。`,
-        `私はまだ判断できていませんが、情報を集めましょう。`,
-        `昨日の行動を振り返ってみるべきでは？`,
-        `誰か怪しい人の名前を挙げてみてください。`,
+        `[会話情報の取得に失敗しました]`,
       ],
       [GAME_PHASES.VOTE]: [
-        `私の判断では…${this._getRandomAlive(aiPlayer)?.name || '誰か'}が怪しいと思います。`,
-        `消去法で考えると、一人に絞られてきますね。`,
-        `みなさんの意見も聞かせてください。`,
+        `[会話情報の取得に失敗しました]`,
       ],
     };
 
@@ -441,11 +435,7 @@ class BatchConversationAI {
 
   _fallback(targetPlayers) {
     const speeches = [
-      'う〜ん、誰が怪しいかな…',
-      'みんな落ち着いて議論しましょう。',
-      '私はまだ判断できていません。情報を集めましょう。',
-      '昨日の行動を振り返ってみるべきでは？',
-      '誰か怪しい人の名前を挙げてみてください。',
+        `[会話情報の取得に失敗しました]`,
     ];
     return {
       posts: targetPlayers.map((player) => ({
@@ -581,7 +571,7 @@ class BatchConversationAI {
 
     try {
       return await callAI(userPrompt, aiApiKey, aiModel, {
-        maxTokens: 500,
+        maxTokens: 1000,
         reasoningEffort,
       });
     } catch (e) {
@@ -592,11 +582,7 @@ class BatchConversationAI {
 
   _fallbackAdventure(aiPlayers, count) {
     const speeches = [
-      'う〜ん、誰が怪しいかな…',
-      'みんな落ち着いて議論しましょう。',
-      '私はまだ判断できていません。情報を集めましょう。',
-      '昨日の行動を振り返ってみるべきでは？',
-      '誰か怪しい人の名前を挙げてみてください。',
+        `[会話情報の取得に失敗しました]`,
     ];
     const targets = aiPlayers.length > 0 ? aiPlayers : [{ name: '？', role: null, personality: null }];
     const total = Math.min(count, targets.length * 4);
@@ -635,7 +621,7 @@ class PlayerPropertyAI {
     try {
       const responseText = await callAI(prompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 500,
+        maxTokens: 1000,
         reasoningEffort,
       });
       return this._parseResponse(responseText);
@@ -822,7 +808,7 @@ class PrecisionConversationAI {
     try {
       const responseText = await callAI(prompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 5000,
+        maxTokens: 8000,
         reasoningEffort,
       });
       this._storySteps = this._parseStoryResponse(responseText);
@@ -1149,11 +1135,7 @@ class PrecisionConversationAI {
 
   _fallback(speaker) {
     const speeches = [
-      'う〜ん、誰が怪しいかな…',
-      'みんな落ち着いて議論しましょう。',
-      '私はまだ判断できていません。情報を集めましょう。',
-      '昨日の行動を振り返ってみるべきでは？',
-      '誰か怪しい人の名前を挙げてみてください。',
+        `[会話情報の取得に失敗しました]`,
     ];
     return {
       name: speaker.name,
