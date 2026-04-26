@@ -905,7 +905,7 @@ class PrecisionConversationAI {
 
   // 次のスピーカーの発言を1件以上生成して返す
   // 戻り値: [{ name, talk, coRole, vote, status, verdictWhite, verdictBlack }, ...] | null
-  // unreflectedPosts: bbsLog にまだ反映されていない直前の投稿リスト（省略可）
+  // unreflectedPosts: conversationBuffer に蓄積済みだが bbsLog にまだ反映されていない投稿の全リスト（省略可）
   async generateNext(unreflectedPosts = null) {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
