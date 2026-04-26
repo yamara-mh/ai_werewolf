@@ -9,25 +9,20 @@ function _escapeForPrompt(str) {
 }
 
 /**
- * 1件の投稿をシンプルな JSON 1行に変換します。
+ * 1件の投稿を「名前: 発言内容」形式の1行に変換します。
  * システム投稿の playerName は "GM" として出力します。
  */
 function _formatPostSimple(post) {
   const name = post.playerName === '★システム' ? 'GM' : post.playerName;
-  const obj = { name, talk: post.content || '' };
-  if (post.coRole) obj.coRole = post.coRole;
-  return JSON.stringify(obj);
+  return `${name}: ${post.content || ''}`;
 }
 
 /**
- * 人狼チャット投稿をシンプルな JSON 1行に変換します。
- * werewolfOnlySecretTalk フィールドを使用します。
+ * 人狼チャット投稿を「名前[狼チャット]: 発言内容」形式の1行に変換します。
  */
 function _formatWolfPostSimple(post) {
   const name = post.playerName === '★システム' ? 'GM' : post.playerName;
-  const obj = { name, werewolfOnlySecretTalk: post.content || '' };
-  if (post.coRole) obj.coRole = post.coRole;
-  return JSON.stringify(obj);
+  return `${name}[狼チャット]: ${post.content || ''}`;
 }
 
 // 後方互換のため旧フォーマット関数も残す
