@@ -104,20 +104,20 @@ class GameState {
     const seer = this.players.find((p) => p.role?.id === ROLES.SEER.id);
     if (!seer) return null;
 
+    if (this.day > 1 && !this.initialSeerReveal?.targetId) return null;
+
     if (this.initialSeerReveal?.targetId) {
       const existingTarget = this.getPlayer(this.initialSeerReveal.targetId);
       if (existingTarget) {
         const verdict = this.initialSeerReveal.verdict;
         if (verdict !== 'white' && verdict !== 'black') {
-          console.warn('initialSeerReveal.verdict が不正です', this.initialSeerReveal);
+          console.warn('initialSeerReveal.verdict が不正です。"white" または "black" が必要です', this.initialSeerReveal);
           return null;
         }
         existingTarget.seerVerdict = verdict;
         return { target: existingTarget, verdict };
       }
     }
-
-    if (this.day > 1) return null;
 
     const inferredTarget = this.players.find((p) => p.id !== seer.id && p.seerVerdict === 'white');
     if (inferredTarget) {

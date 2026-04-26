@@ -175,7 +175,7 @@ function buildRoleDeck(totalPlayers, werewolfCount, optionalRoleIds = []) {
   return roles;
 }
 
-// personality/PromptSheet.tsv から読み込んだデータを保持します
+// personality/PromptSheet.tsv から読み込んだデータを保持します。空の場合、ゲームは開始できません。
 let AI_PERSONALITIES = [];
 
 /**
