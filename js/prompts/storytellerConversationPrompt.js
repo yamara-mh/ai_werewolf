@@ -1,11 +1,18 @@
 // ストーリーテラーAI用プロンプト
-// 依存: js/toon.js (formatMixedPostsAsToon, formatUnreflectedPostsAsToon)
+// 依存: js/prompts/helpers.js (_formatPostSimple, _formatWolfPostSimple)
 
 function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, currentVotes, unreflectedPosts }) {
   const lines = [];
+  const toSpeakerName = (post) => (post.playerName === '★システム' ? 'GM' : post.playerName);
+  const formatPublicPost = typeof _formatPostSimple === 'function'
+    ? _formatPostSimple
+    : (post) => JSON.stringify({ name: toSpeakerName(post), talk: post.content || '' });
+  const formatWolfPost = typeof _formatWolfPostSimple === 'function'
+    ? _formatWolfPostSimple
+    : (post) => JSON.stringify({ name: toSpeakerName(post), werewolfOnlySecretTalk: post.content || '' });
 
   lines.push('あなたは人狼ゲームの監督です。');
-  lines.push('今日のチャットの先の展開を予想し、TOONで結果を生成してください。');
+  lines.push('今日のチャットの先の展開を予想し、JSONで結果を生成してください。');
   lines.push('論理的で面白い予想を心がけ、投票完了まで予想し切ってください。');
   lines.push('');
 
@@ -40,16 +47,24 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
   
   lines.push('# 今日のチャット');
   if (allTodayPosts.length > 0) {
-    lines.push(formatMixedPostsAsToon(allTodayPosts));
+    allTodayPosts.forEach(({ post, isWolf }) => {
+      lines.push(isWolf ? formatWolfPost(post) : formatPublicPost(post));
+    });
   } else if (!hasUnreflectedPosts) {
     lines.push('（まだ発言はありません）');
   }
   
   // 未反映の投稿（前回生成されたがまだチャットに反映されていない投稿）も含める
   // 注: unreflectedPosts は _parseResponse の戻り値で、bbsLog とは異なる構造
-  // { name, talk, coRole, ... } という形式
+  // { name, talk, coRole, ... } という形式なので、直接 JSON.stringify する
   if (hasUnreflectedPosts) {
-    lines.push(formatUnreflectedPostsAsToon(unreflectedPosts));
+    unreflectedPosts.forEach((post) => {
+      if (post.talk) {
+        const obj = { name: post.name, talk: post.talk };
+        if (post.coRole) obj.coRole = post.coRole;
+        lines.push(JSON.stringify(obj));
+      }
+    });
   }
   
   lines.push('');
@@ -66,15 +81,14 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
   lines.push('thinking, talk はそれぞれ5～30文字前後で、冷静で論理的な体言止めにしてください。');
 
   lines.push('# 出力形式');
-  lines.push(
-    'scenario[N]:\n' +
-    '  - thinking: 次の発言者と立ち回りの考察\n' +
-    '  - name: 人物名\n' +
-    '    talk: 発言\n' +
-    '  - thinking: 考察\n' +
-    '  - name: 人物名\n' +
-    '    talk: 発言'
-  );
+  lines.push(JSON.stringify({
+    scenario: [
+      { thinking: '次の発言者と立ち回りの考察'},
+      { name: '人物名', talk: '発言' },
+      { thinking: '考察'},
+      { name: '人物名', talk: '発言' },
+    ],
+  }, null, 2));
   lines.push('');
 
   return lines.join('\n');

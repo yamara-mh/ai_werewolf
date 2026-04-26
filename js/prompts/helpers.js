@@ -1,5 +1,4 @@
 // プロンプト共通ヘルパー関数
-// TOON 形式のエンコード・デコードは js/toon.js で定義しています。
 
 function _escapeForPrompt(str) {
   return String(str || '')

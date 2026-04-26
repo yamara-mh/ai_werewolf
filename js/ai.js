@@ -12,21 +12,7 @@ function _normalizeVerdictNames(arr, aliveNames) {
   }).filter((name) => name && aliveNames.has(name));
 }
 
-// TOON レスポンスから会話データを正規化します。TOON 解析に失敗した場合は JSON にフォールバックします。
 function _normalizeConversationJson(responseText) {
-  // TOON を優先してパース
-  const toon = decodeToon(responseText);
-  if (toon && typeof toon === 'object') {
-    if (Array.isArray(toon.posts)) return { posts: toon.posts, summary: toon.summary || null };
-    if (Array.isArray(toon.scenario)) return { posts: toon.scenario, summary: null };
-    // キー検索
-    const alternatePostKeys = ['conversations', 'messages', 'talks'];
-    for (const key of alternatePostKeys) {
-      if (Array.isArray(toon[key])) return { posts: toon[key], summary: toon.summary || null };
-    }
-  }
-
-  // JSON フォールバック
   const parsed = _extractJsonFromText(responseText);
   if (Array.isArray(parsed)) {
     return { posts: parsed, summary: null };
@@ -360,6 +346,7 @@ class BatchConversationAI {
 
     try {
       const responseText = await callAI(userPrompt, aiApiKey, aiModel, {
+        jsonMode: true,
         maxTokens: 6000,
         reasoningEffort,
       });
@@ -425,7 +412,7 @@ class BatchConversationAI {
 
       return { posts: validPosts };
     } catch (e) {
-      console.warn('バッチ会話TOON/JSONパースエラー:', e, responseText);
+      console.warn('バッチ会話JSONパースエラー:', e, responseText);
       return this._fallback(targetPlayers);
     }
   }
@@ -474,6 +461,7 @@ class BatchConversationAI {
 
     try {
       const responseText = await callAI(userPrompt, aiApiKey, aiModel, {
+        jsonMode: true,
         maxTokens: 8000,
         reasoningEffort,
       });
@@ -563,7 +551,7 @@ class BatchConversationAI {
 
       return { posts: validPosts };
     } catch (e) {
-      console.warn('アドベンチャー会話TOON/JSONパースエラー:', e, responseText);
+      console.warn('アドベンチャー会話JSONパースエラー:', e, responseText);
       return this._fallbackAdventure(aiPlayers, 5);
     }
   }
@@ -632,6 +620,7 @@ class PlayerPropertyAI {
 
     try {
       const responseText = await callAI(prompt, aiApiKey, aiModel, {
+        jsonMode: true,
         maxTokens: 1000,
         reasoningEffort,
       });
@@ -704,13 +693,9 @@ class PlayerPropertyAI {
 
   _parseResponse(responseText) {
     try {
-      // TOON を優先してパース、失敗時は JSON フォールバック
-      let parsed = decodeToon(responseText);
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        parsed = _extractJsonFromText(responseText);
-      }
+      const parsed = _extractJsonFromText(responseText);
       if (!parsed || typeof parsed !== 'object') {
-        throw new Error('オブジェクトが見つかりません');
+        throw new Error('JSONオブジェクトではありません');
       }
 
       const aliveNames = new Set(this.gameState.getAlivePlayers().map((p) => p.name));
@@ -722,7 +707,7 @@ class PlayerPropertyAI {
         werewolf: _normalizeVerdictNames(parsed.werewolf, aliveNames),
       };
     } catch (e) {
-      console.warn('プレイヤープロパティTOON/JSONパースエラー:', e, responseText);
+      console.warn('プレイヤープロパティJSONパースエラー:', e, responseText);
       return this._fallback();
     }
   }
@@ -816,6 +801,7 @@ class PrecisionConversationAI {
 
     try {
       const responseText = await callAI(prompt, aiApiKey, aiModel, {
+        jsonMode: true,
         maxTokens: 8000,
         reasoningEffort,
       });
@@ -827,11 +813,7 @@ class PrecisionConversationAI {
   }
 
   _parseStoryResponse(responseText) {
-    // TOON を優先してパース、失敗時は JSON フォールバック
-    let parsed = decodeToon(responseText);
-    if (!parsed || typeof parsed !== 'object') {
-      parsed = _extractJsonFromText(responseText);
-    }
+    const parsed = _extractJsonFromText(responseText);
     const scenario = Array.isArray(parsed?.scenario)
       ? parsed.scenario
       : Array.isArray(parsed?.steps)
@@ -923,6 +905,7 @@ class PrecisionConversationAI {
 
     try {
       const responseText = await callAI(fullPrompt, aiApiKey, aiModel, {
+        jsonMode: true,
         maxTokens: 2000,
         reasoningEffort,
       });
@@ -1021,7 +1004,7 @@ class PrecisionConversationAI {
 
   _parseResponse(responseText, speaker) {
     try {
-      // BatchConversationAI の TOON/JSON パーサーを再利用
+      // BatchConversationAI の JSON パーサーを再利用
       const batchAI = new BatchConversationAI(this.gameState);
       const data = batchAI._normalizeConversationJson(responseText);
       if (!Array.isArray(data.posts) || data.posts.length === 0) {

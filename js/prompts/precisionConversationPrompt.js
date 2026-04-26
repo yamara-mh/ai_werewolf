@@ -23,7 +23,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
   const lines = [
     'あなたは人狼ゲームのプレイヤーです。',
     '{#今日のチャット}の続きを投稿してください。',
-    '必ずTOON（Token-Oriented Object Notation）形式で出力してください。',
+    '必ずJSON形式で出力してください。',
   ];
   if (roomLevelPrompt) lines.push(roomLevelPrompt);
   lines.push('');
@@ -89,16 +89,24 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   const hasUnreflectedPosts = unreflectedPosts && Array.isArray(unreflectedPosts) && unreflectedPosts.length > 0;
   
   if (allTodayPosts.length > 0) {
-    lines.push(formatMixedPostsAsToon(allTodayPosts));
+    allTodayPosts.forEach(({ post, isWolf }) => {
+      lines.push(isWolf ? _formatWolfPostSimple(post) : _formatPostSimple(post));
+    });
   } else if (!hasUnreflectedPosts) {
     lines.push('（まだ発言はありません）');
   }
   
   // 未反映の投稿（前回生成されたがまだチャットに反映されていない投稿）も含める
   // 注: unreflectedPosts は _parseResponse の戻り値で、bbsLog とは異なる構造
-  // { name, talk, coRole, ... } という形式
+  // { name, talk, coRole, ... } という形式なので、直接 JSON.stringify する
   if (hasUnreflectedPosts) {
-    lines.push(formatUnreflectedPostsAsToon(unreflectedPosts));
+    unreflectedPosts.forEach((post) => {
+      if (post.talk) {
+        const obj = { name: post.name, talk: post.talk };
+        if (post.coRole) obj.coRole = post.coRole;
+        lines.push(JSON.stringify(obj));
+      }
+    });
   }
   
   lines.push('');
@@ -140,21 +148,12 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push('post の配列数は発言の情報量や性格に応じて1～5回ほどにする。');
 
   lines.push('# 出力形式');
-  lines.push('必ず以下の TOON 形式に従って出力してください:');
-  lines.push(
-    'posts[N]:\n' +
-    '  - name: 人物名（必須）\n' +
-    '    thinking: 冷静な分析（省略可）\n' +
-    '    coRole: カミングアウトする役職ID（省略可）\n' +
-    '    talk: 発言内容（必須。10～30文字）\n' +
-    '    status: 表情（必須）\n' +
-    '    villager[N]: 白だしする人物名（省略可、複数はカンマ区切り）\n' +
-    '    werewolf[N]: 黒だしする人物名（省略可、複数はカンマ区切り）\n' +
-    '    vote: 投票先人物名（省略可）\n' +
-    '  - name: 人物名\n' +
-    '    talk: 発言内容（10～30文字）\n' +
-    '    status: 表情'
-  );
+  lines.push('必ず以下のJSON形式に従って出力してください:');
+  lines.push(JSON.stringify({
+    posts: [{ name: '人物名（必須）', thinking: '冷静な分析（省略可）', coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容（必須。10～30文字）', status: '表情（必須）', villager: { name: '白だしする人物名（省略可）' }, werewolf: { name: '黒だしする人物名（省略可）' }, vote: '投票先人物名（省略可）' },
+      { name: '人物名', talk: '発言内容（10～30文字）', status: '表情' },
+    ],
+  }, null, 2));
 
   return lines.join('\n');
 }
