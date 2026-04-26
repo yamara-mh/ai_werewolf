@@ -2,7 +2,7 @@
  * プレイヤー投稿プロパティ付与プロンプト
  * 
  * @description
- * プレイヤーの投稿内容を受け取り、coRole, vote, villager, werewolf を付与したJSONを返す
+ * プレイヤーの投稿内容を受け取り、coRole, vote, villager, werewolf を付与したTOONを返す
  * 
  * @purpose
  * 人間プレイヤーの自然な会話投稿から、ゲームの構造化データ（CO、投票、白だし、黒だし）を
@@ -17,21 +17,19 @@
  *   alivePlayersText: "A、B、C、D",
  *   // ... その他のパラメータ
  * });
- * const result = await callAI(prompt, apiKey, model, { jsonMode: true });
- * // => { coRole: "seer", vote: "B", villager: [], werewolf: ["A"] }
+ * const result = await callAI(prompt, apiKey, model);
+ * // => decodeToon(result) => { coRole: "seer", vote: "B", villager: [], werewolf: ["A"] }
  * ```
  * 
- * @output
- * {
- *   coRole: string | null,  // カミングアウトする役職ID（例: "seer", "werewolf"）
- *   vote: string | null,     // 投票先プレイヤー名
- *   villager: string[],      // 白だし（村人判定）したプレイヤー名の配列
- *   werewolf: string[]       // 黒だし（人狼判定）したプレイヤー名の配列
- * }
+ * @output TOON 形式（JSON フォールバックあり）
+ * coRole: string | null  // カミングアウトする役職ID（例: "seer", "werewolf"）
+ * vote: string | null    // 投票先プレイヤー名
+ * villager[N]: プレイヤー名（カンマ区切り）  // 白だしプレイヤー名
+ * werewolf[N]: プレイヤー名（カンマ区切り）  // 黒だしプレイヤー名
  * 
  * @dependencies
  * - js/config.js (ROLES, isActualWolf)
- * - js/prompts/helpers.js (_formatPostSimple, _formatWolfPostSimple)
+ * - js/toon.js (formatMixedPostsAsToon)
  */
 
 /**
@@ -56,7 +54,7 @@ function buildPlayerPropertyPrompt({ player, content, day, alivePlayersText, pre
   const isFox = role?.id === ROLES.FOX.id;
   const teamLabel = isWolf ? '人狼陣営' : (isFox ? '妖狐陣営' : '村人陣営');
 
-  lines.push('あなたは人狼ゲームの発言内容を解析し、JSONを生成するアシスタントです。');
+  lines.push('あなたは人狼ゲームの発言内容を解析し、TOONを生成するアシスタントです。');
   lines.push('プレイヤーの発言内容から、カミングアウト（CO）、投票先、白だし、黒だしを抽出してください。');
   lines.push('');
 
@@ -83,12 +81,7 @@ function buildPlayerPropertyPrompt({ player, content, day, alivePlayersText, pre
     ...(wolfPosts || []).map((p) => ({ post: p, isWolf: true })),
   ].sort((a, b) => (a.post.id || 0) - (b.post.id || 0));
   if (allTodayPosts.length > 0) {
-    allTodayPosts.forEach(({ post, isWolf }) => {
-      const toSpeakerName = (p) => (p.playerName === '★システム' ? 'GM' : p.playerName);
-      const formatPost = (p) => JSON.stringify({ name: toSpeakerName(p), talk: p.content || '' });
-      const formatWolfPost = (p) => JSON.stringify({ name: toSpeakerName(p), werewolfOnlySecretTalk: p.content || '' });
-      lines.push(isWolf ? formatWolfPost(post) : formatPost(post));
-    });
+    lines.push(formatMixedPostsAsToon(allTodayPosts));
   } else {
     lines.push('（まだ発言はありません）');
   }
@@ -131,18 +124,18 @@ function buildPlayerPropertyPrompt({ player, content, day, alivePlayersText, pre
   lines.push('- coRole: カミングアウト（CO）している役職ID（省略可）');
   lines.push('  - 可能な値: villager, seer, medium, hunter, madman, werewolf, shared, cat, fox');
   lines.push('- vote: 投票先のプレイヤー名（省略可）');
-  lines.push('- villager: 白だし（村人判定）したプレイヤー名の配列（省略可）');
-  lines.push('- werewolf: 黒だし（人狼判定）したプレイヤー名の配列（省略可）');
+  lines.push('- villager: 白だし（村人判定）したプレイヤー名（省略可、複数はカンマ区切り）');
+  lines.push('- werewolf: 黒だし（人狼判定）したプレイヤー名（省略可、複数はカンマ区切り）');
   lines.push('');
 
   lines.push('# 出力形式');
-  lines.push('必ず以下のJSON形式に従って出力してください:');
-  lines.push(JSON.stringify({
-    coRole: 'カミングアウトする役職ID（省略可）',
-    vote: '投票先プレイヤー名（省略可）',
-    villager: ['白だしするプレイヤー名（省略可）'],
-    werewolf: ['黒だしするプレイヤー名（省略可）'],
-  }, null, 2));
+  lines.push('必ず以下の TOON 形式に従って出力してください:');
+  lines.push(
+    'coRole: カミングアウトする役職ID（省略可）\n' +
+    'vote: 投票先プレイヤー名（省略可）\n' +
+    'villager[N]: 白だしするプレイヤー名（省略可、複数はカンマ区切り）\n' +
+    'werewolf[N]: 黒だしするプレイヤー名（省略可、複数はカンマ区切り）'
+  );
   lines.push('');
   lines.push('発言内容に該当する情報がない場合は、そのフィールドを省略してください。');
 
