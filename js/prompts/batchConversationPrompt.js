@@ -93,7 +93,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   lines.push('占い師は初日、白判定になる人物を無作為に一人告げられます。');
   lines.push('会議中いつでも投票、再投票できます。');
   lines.push('全員が投票したら会議は終了します。');
-  lines.push('werewolfOnlySecretTalk は人狼（大狼）だけの密談なので、絶対に閲覧できません。');
+  lines.push('[狼チャット] は人狼（大狼）だけの密談なので、絶対に閲覧できません。');
   lines.push('');
 
   lines.push('# 前日までのあらすじ');

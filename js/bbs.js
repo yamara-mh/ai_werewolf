@@ -10,9 +10,34 @@ const PORTRAIT_STATUS_FALLBACKS = ['serious'];
 // キャプチャグループ: (1) ディレクトリ部分, (2) ステータス名, (3) 拡張子
 const PORTRAIT_PATH_PATTERN = /(personality\/portrait\/[^/]+\/)([^./]+)\.(png|jpg)$/;
 
-// ポートレート画像の読み込み失敗時の処理
-// .png → .jpg → フォールバックステータス(.png/.jpg) → global default の順にフォールバック
-// bbs.js は controller.js より先に読み込まれるため、controller.js からも参照可能
+// ポートレート読み込み結果キャッシュ (src -> boolean)
+const _portraitSrcCache = new Map();
+
+/**
+ * img 要素にポートレートを非同期で読み込みます。
+ * 初期値にグローバルデフォルト画像を設定し、fetch HEAD でキャラクター固有画像の
+ * 存在を確認してから src を更新することで 404 コンソールエラーを抑制します。
+ * @param {HTMLImageElement} img     対象の img 要素
+ * @param {string}           src     読み込むキャラクター固有のポートレート URL
+ */
+function loadPortraitSrc(img, src) {
+  const globalDefault = 'personality/portrait/default.png';
+  if (!(img instanceof HTMLImageElement)) return;
+  img.src = globalDefault;
+  if (!src || src === globalDefault) return;
+  if (_portraitSrcCache.has(src)) {
+    if (_portraitSrcCache.get(src)) img.src = src;
+    return;
+  }
+  fetch(src, { method: 'HEAD' })
+    .then((r) => {
+      _portraitSrcCache.set(src, r.ok);
+      if (r.ok) img.src = src;
+    })
+    .catch(() => { _portraitSrcCache.set(src, false); });
+}
+
+// ポートレート画像の読み込み失敗時の処理（後方互換用。新規コードは loadPortraitSrc を使用）
 function handlePortraitError(img) {
   if (img.dataset.portraitErr === 'done') return;
 
@@ -156,7 +181,6 @@ class BBS {
         seerVerdict,
       });
       const portraitStatus = (post.status && VALID_PORTRAIT_STATUSES_BBS.has(post.status)) ? post.status : 'default';
-      const portraitSrc = `personality/portrait/${this._escape(post.playerName)}/${portraitStatus}.png`;
       const isWolfChat = post.type === 'wolf_chat' || post.type === 'whisper'; // 'whisper' は後方互換
       const wolfChatClass = isWolfChat ? ' bbs-post__row--wolf-chat' : '';
       const wolfChatPrefix = isWolfChat ? '<span class="bbs-post__whisper-prefix">🐺狼チャット</span> ' : '';
@@ -165,10 +189,12 @@ class BBS {
           <label class="bbs-post__bookmark">
             <input type="checkbox" class="bbs-post__bookmark-checkbox" />
           </label>
-          <img src="${portraitSrc}" onerror="handlePortraitError(this)" class="player-portrait player-portrait--post" alt="" />
+          <img class="player-portrait player-portrait--post" alt="" />
           <span class="bbs-post__name">${nameHtml}</span>
           <span class="bbs-post__body">${wolfChatPrefix}${this._escape(post.content)}</span>
         </div>`;
+      const portraitImg = el.querySelector('.player-portrait--post');
+      if (portraitImg) loadPortraitSrc(portraitImg, `personality/portrait/${post.playerName}/${portraitStatus}.png`);
     }
 
     el.dataset.postId = String(post.id);
@@ -430,7 +456,6 @@ function renderPlayerList(players, options = {}) {
       const text = player.deathReason === 'attack' ? '襲撃' : '処刑';
       deadLabel = `<span class="player-dead-label">${text}</span>`;
     }
-    const portraitSrc = `personality/portrait/${escapeHtml(player.name)}/default.png`;
     const isAlly = italicPlayerIds.has(player.id);
     const roleObjForCard = (player.coRole ? ROLE_BY_ID[player.coRole] : null) || ROLES.VILLAGER;
     const portraitRoleIcon = roleObjForCard?.icon || ROLES.VILLAGER.icon;
@@ -444,12 +469,14 @@ function renderPlayerList(players, options = {}) {
     el.innerHTML = `
       <span class="player-card__name">
         <span class="player-portrait-wrapper">
-          <img src="${portraitSrc}" onerror="handlePortraitError(this)" class="player-portrait player-portrait--card" alt="" />
+          <img class="player-portrait player-portrait--card" alt="" />
           <span class="player-name-icon player-name-icon--portrait">${portraitRoleIcon}${verdictPortraitHtml}</span>
           ${deadLabel}
         </span>
         <span class="player-name-text${colorClass}${allyClass}">${escapeHtml(player.name)}</span>
       </span>`;
+    const portraitImg = el.querySelector('.player-portrait--card');
+    if (portraitImg) loadPortraitSrc(portraitImg, `personality/portrait/${player.name}/default.png`);
     if (typeof onPlayerClick === 'function') {
       el.addEventListener('click', () => onPlayerClick(player));
     }

@@ -445,12 +445,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (targets.length === 0) return;
     const target = targets[Math.floor(Math.random() * targets.length)];
 
-    // 人間プレイヤーが占い師の場合のみ結果を表示
+    // 占い師（人間・AI問わず）の初日お告げ結果をゲーム状態に記録する
+    target.seerVerdict = 'white';
+
+    // 人間プレイヤーが占い師の場合のみ結果を表示し、BBSの占い結果アイコンを更新
     if (humanPlayer.role?.id === ROLES.SEER.id) {
       gs.addSystemPost(`【0日目・初日占い結果】${getPlayerDisplayText(target)} は人間です。（GMより占い師への秘密通達）`);
       bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
-      gs.save();
+      bbs.updatePlayerVerdict(target.id, 'white');
     }
+    gs.save();
   }
 
   // --- フェーズUI切替 ---
@@ -889,9 +893,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       isAlly,
       fallbackRoleId: ROLES.VILLAGER.id,
     });
-    const portraitSrc = `personality/portrait/${escapeHtml(player.name)}/default.png`;
     return `
-      <img src="${portraitSrc}" onerror="handlePortraitError(this)" class="player-portrait player-portrait--post" alt="" />
+      <img class="player-portrait player-portrait--post" alt="" />
       <span class="modal-player-btn__name">${nameHtml}</span>`;
   }
 
@@ -907,6 +910,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.type = 'button';
       btn.className = 'btn btn--vote modal-player-btn';
       btn.innerHTML = buildModalPlayerButtonContent(player);
+      const portraitImg = btn.querySelector('.player-portrait');
+      if (portraitImg) loadPortraitSrc(portraitImg, `personality/portrait/${player.name}/default.png`);
       btn.addEventListener('click', async () => {
         const ok = window.confirm(`${getPlayerDisplayText(player)} に投票しますか？`);
         if (!ok) return;
@@ -930,6 +935,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.type = 'button';
       btn.className = 'btn btn--night modal-player-btn';
       btn.innerHTML = buildModalPlayerButtonContent(player);
+      const portraitImg = btn.querySelector('.player-portrait');
+      if (portraitImg) loadPortraitSrc(portraitImg, `personality/portrait/${player.name}/default.png`);
       btn.addEventListener('click', () => {
         let confirmMsg = '';
         if (isWerewolfRole(humanRole)) {
