@@ -347,7 +347,7 @@ class BatchConversationAI {
     try {
       const responseText = await callAI(userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 6000,
+        maxTokens: 10000,
         reasoningEffort,
       });
       return this._parseResponse(responseText, targetPlayers);
@@ -462,7 +462,7 @@ class BatchConversationAI {
     try {
       const responseText = await callAI(userPrompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 8000,
+        maxTokens: 10000,
         reasoningEffort,
       });
       return this._parseAdventureResponse(responseText, aiPlayers);
@@ -571,7 +571,7 @@ class BatchConversationAI {
 
     try {
       return await callAI(userPrompt, aiApiKey, aiModel, {
-        maxTokens: 1000,
+        maxTokens: 3000,
         reasoningEffort,
       });
     } catch (e) {
@@ -808,7 +808,7 @@ class PrecisionConversationAI {
     try {
       const responseText = await callAI(prompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 8000,
+        maxTokens: 10000,
         reasoningEffort,
       });
       this._storySteps = this._parseStoryResponse(responseText);
@@ -912,7 +912,7 @@ class PrecisionConversationAI {
     try {
       const responseText = await callAI(fullPrompt, aiApiKey, aiModel, {
         jsonMode: true,
-        maxTokens: 2000,
+        maxTokens: 3000,
         reasoningEffort,
       });
       return this._parseResponse(responseText, speaker);
