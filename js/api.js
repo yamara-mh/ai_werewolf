@@ -20,12 +20,14 @@ async function callAI(userPrompt, apiKey, model, options = {}) {
   const validReasoningEffort = ['low', 'medium', 'high'].includes(reasoningEffort)
     ? reasoningEffort
     : 'medium';
+  const reasoningTokenMultiplier = { low: 1, medium: 1.5, high: 2 };
+  const scaledMaxTokens = Math.ceil(maxTokens * (reasoningTokenMultiplier[validReasoningEffort] ?? 1));
 
   const timestamp = new Date().toLocaleTimeString('ja-JP', { hour12: false });
   console.log(`[LLM Input] ${timestamp} User Prompt:\n`, userPrompt);
 
   if (model.startsWith('gemini-')) {
-    const generationConfig = { maxOutputTokens: maxTokens, temperature: 0.8 };
+    const generationConfig = { maxOutputTokens: scaledMaxTokens, temperature: 0.8 };
     if (jsonMode) generationConfig.responseMimeType = 'application/json';
 
     const res = await fetch(
@@ -63,7 +65,7 @@ async function callAI(userPrompt, apiKey, model, options = {}) {
     messages: [
       { role: 'user', content: userPrompt },
     ],
-    max_tokens: maxTokens,
+    max_tokens: scaledMaxTokens,
     temperature: 0.8,
     reasoning_effort: validReasoningEffort,
   };
