@@ -57,24 +57,11 @@ function buildPlayerPropertyPrompt({ player, content, day, alivePlayersText, pre
   const teamLabel = isWolf ? '人狼陣営' : (isFox ? '妖狐陣営' : '村人陣営');
 
   lines.push('あなたは人狼ゲームの発言内容を解析し、JSONを生成するアシスタントです。');
-  lines.push('プレイヤーの発言内容から、カミングアウト（CO）、投票先、白だし、黒だしを抽出してください。');
-  lines.push('');
-
-  lines.push('# プレイヤー情報');
-  lines.push(`名前: ${player.name}`);
-  lines.push(`役職: ${role?.name || '不明'}（${role?.description || ''}）`);
-  lines.push(`チーム: ${teamLabel}`);
-  if (player.personality) lines.push(`性格: ${player.personality}`);
-  if (player.firstPersonPronouns) lines.push(`一人称: ${player.firstPersonPronouns}`);
-  if (player.speakingStyle) lines.push(`話し方: ${player.speakingStyle}`);
+  lines.push('プレイヤーの発言内容から、カミングアウト（CO）、投票先、白だし、黒だしを行ったか判断してください。');
   lines.push('');
 
   lines.push('# 生存プレイヤー');
   lines.push(alivePlayersText || 'なし');
-  lines.push('');
-
-  lines.push('# 前日までのあらすじ');
-  lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
 
   lines.push('# 今日のチャット');
@@ -94,28 +81,6 @@ function buildPlayerPropertyPrompt({ player, content, day, alivePlayersText, pre
   }
   lines.push('');
 
-  if (seerResults && seerResults.length > 0) {
-    lines.push('# 占い結果');
-    seerResults.forEach(({ targetName, isWerewolf }) => {
-      lines.push(`${targetName}: ${isWerewolf ? '人狼' : '人狼ではない'}`);
-    });
-    lines.push('');
-  }
-
-  if (hunterResult) {
-    lines.push('# 護衛結果（前夜）');
-    lines.push(`${hunterResult.guardedName} を護衛しました`);
-    lines.push('');
-  }
-
-  if (mediumResults && mediumResults.length > 0) {
-    lines.push('# 霊媒結果');
-    mediumResults.forEach(({ targetName, isWerewolf }) => {
-      lines.push(`${targetName}: ${isWerewolf ? '人狼' : '人狼ではない'}`);
-    });
-    lines.push('');
-  }
-
   if (currentVotes && currentVotes.length > 0) {
     lines.push('# 現在の投票状況');
     currentVotes.forEach(({ voterName, targetName }) => lines.push(`${voterName} → ${targetName}`));
@@ -126,22 +91,22 @@ function buildPlayerPropertyPrompt({ player, content, day, alivePlayersText, pre
   lines.push(content);
   lines.push('');
 
-  lines.push('# 抽出指示');
+  lines.push('# 出力の補足');
   lines.push('以下の情報を発言内容から抽出してください:');
-  lines.push('- coRole: カミングアウト（CO）している役職ID（省略可）');
+  lines.push('- coRole: カミングアウト（CO）した役職ID（省略可）');
   lines.push('  - 可能な値: villager, seer, medium, hunter, madman, werewolf, shared, cat, fox');
-  lines.push('- vote: 投票先のプレイヤー名（省略可）');
-  lines.push('- villager: 白だし（村人判定）したプレイヤー名の配列（省略可）');
-  lines.push('- werewolf: 黒だし（人狼判定）したプレイヤー名の配列（省略可）');
+  lines.push('- vote: 投票先の人物名（省略可）');
+  lines.push('- villager: 白だし（村人判定）した人物名の配列（省略可）');
+  lines.push('- werewolf: 黒だし（人狼判定）した人物名の配列（省略可）');
   lines.push('');
 
   lines.push('# 出力形式');
   lines.push('必ず以下のJSON形式に従って出力してください:');
   lines.push(JSON.stringify({
-    coRole: 'カミングアウトする役職ID（省略可）',
-    vote: '投票先プレイヤー名（省略可）',
-    villager: ['白だしするプレイヤー名（省略可）'],
-    werewolf: ['黒だしするプレイヤー名（省略可）'],
+    coRole: 'カミングアウトした役職ID（省略可）',
+    vote: '投票先の人物名（省略可）',
+    villager: ['白だしした人物名（省略可）'],
+    werewolf: ['黒だしした人物名（省略可）'],
   }, null, 2));
   lines.push('');
   lines.push('発言内容に該当する情報がない場合は、そのフィールドを省略してください。');
