@@ -610,7 +610,7 @@ class PlayerPropertyAI {
   // 戻り値: { coRole, vote, villager, werewolf } | null
   async analyzePost(player, content) {
     const gs = this.gameState;
-    const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
+    const { aiApiKey, aiModel } = gs.settings;
 
     if (!aiApiKey || !content || !content.trim()) {
       return this._fallback();
@@ -622,7 +622,7 @@ class PlayerPropertyAI {
       const responseText = await callAI(prompt, aiApiKey, aiModel, {
         jsonMode: true,
         maxTokens: 1000,
-        reasoningEffort,
+        reasoningEffort: 'low',
       });
       return this._parseResponse(responseText);
     } catch (e) {
@@ -634,7 +634,6 @@ class PlayerPropertyAI {
   _buildPrompt(player, content) {
     const gs = this.gameState;
     const role = player.role;
-    const isWolf = isActualWolf(role);
     const isSeer = role?.id === ROLES.SEER.id;
     const isHunter = role?.id === ROLES.HUNTER.id;
     const isMedium = role?.id === ROLES.MEDIUM.id;
@@ -643,11 +642,17 @@ class PlayerPropertyAI {
       .map((p) => p.name)
       .join('、');
 
-    const todayPosts = gs.getTodayPosts();
+    const executedPlayersText = gs.players
+      .filter((p) => !p.isAlive && p.deathReason === 'execution')
+      .map((p) => p.name)
+      .join('、');
 
-    const wolfPosts = isWolf
-      ? gs.bbsLog.filter((p) => p.day === gs.day && (p.type === 'wolf_chat' || p.type === 'whisper'))
-      : [];
+    const attackedPlayersText = gs.players
+      .filter((p) => !p.isAlive && p.deathReason === 'attack')
+      .map((p) => p.name)
+      .join('、');
+
+    const todayPosts = gs.getTodayPosts();
 
     const seerResults = isSeer
       ? gs.players
@@ -681,9 +686,10 @@ class PlayerPropertyAI {
       content,
       day: gs.day,
       alivePlayersText,
+      executedPlayersText,
+      attackedPlayersText,
       previousDaysSynopsis: gs.previousDaysSynopsis || '',
       todayPosts,
-      wolfPosts,
       seerResults,
       hunterResult,
       mediumResults,

@@ -37,19 +37,20 @@
 /**
  * プレイヤー投稿にプロパティを付与するプロンプトを構築します。
  * @param {object} params
- * @param {object} params.player             投稿したプレイヤー
- * @param {string} params.content            投稿内容
- * @param {number} params.day                現在の日数
- * @param {string} params.alivePlayersText   生存プレイヤー名（読点区切り）
- * @param {string} params.previousDaysSynopsis 前日までのあらすじ
- * @param {Array}  params.todayPosts         今日の公開チャット投稿配列
- * @param {Array}  params.wolfPosts          今日の人狼チャット投稿配列（人狼のみ参照可）
- * @param {Array}  params.seerResults        占い師の占い結果配列（占い師のみ参照可）
- * @param {object|null} params.hunterResult  騎士の護衛結果（騎士のみ参照可）
- * @param {Array}  params.mediumResults      霊媒師の霊媒結果配列（霊媒師のみ参照可）
- * @param {Array}  params.currentVotes       現在の投票状況
+ * @param {object} params.player                 投稿したプレイヤー
+ * @param {string} params.content                投稿内容
+ * @param {number} params.day                    現在の日数
+ * @param {string} params.alivePlayersText       生存プレイヤー名（読点区切り）
+ * @param {string} params.executedPlayersText    処刑されたプレイヤー名（読点区切り）
+ * @param {string} params.attackedPlayersText    襲撃されたプレイヤー名（読点区切り）
+ * @param {string} params.previousDaysSynopsis   前日までのあらすじ
+ * @param {Array}  params.todayPosts             今日の公開チャット投稿配列
+ * @param {Array}  params.seerResults            占い師の占い結果配列（占い師のみ参照可）
+ * @param {object|null} params.hunterResult      騎士の護衛結果（騎士のみ参照可）
+ * @param {Array}  params.mediumResults          霊媒師の霊媒結果配列（霊媒師のみ参照可）
+ * @param {Array}  params.currentVotes           現在の投票状況
  */
-function buildPlayerPropertyPrompt({ player, content, day, alivePlayersText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes }) {
+function buildPlayerPropertyPrompt({ player, content, day, alivePlayersText, executedPlayersText, attackedPlayersText, previousDaysSynopsis, todayPosts, seerResults, hunterResult, mediumResults, currentVotes }) {
   const lines = [];
   const role = player.role;
   const isWolf = isActualWolf(role);
@@ -64,17 +65,21 @@ function buildPlayerPropertyPrompt({ player, content, day, alivePlayersText, pre
   lines.push(alivePlayersText || 'なし');
   lines.push('');
 
-  lines.push('# 今日のチャット');
-  const allTodayPosts = [
-    ...todayPosts.map((p) => ({ post: p, isWolf: false })),
-    ...(wolfPosts || []).map((p) => ({ post: p, isWolf: true })),
-  ].sort((a, b) => (a.post.id || 0) - (b.post.id || 0));
-  if (allTodayPosts.length > 0) {
-    allTodayPosts.forEach(({ post, isWolf }) => {
+  lines.push('# 処刑されたプレイヤー');
+  lines.push(executedPlayersText || 'なし');
+  lines.push('');
+
+  lines.push('# 襲撃されたプレイヤー');
+  lines.push(attackedPlayersText || 'なし');
+  lines.push('');
+
+  lines.push('# 直近のチャット');
+  const recentPosts = todayPosts.slice(-3);
+  if (recentPosts.length > 0) {
+    recentPosts.forEach((post) => {
       const toSpeakerName = (p) => (p.playerName === '★システム' ? 'GM' : p.playerName);
       const formatPost = (p) => JSON.stringify({ name: toSpeakerName(p), talk: p.content || '' });
-      const formatWolfPost = (p) => JSON.stringify({ name: toSpeakerName(p), werewolfOnlySecretTalk: p.content || '' });
-      lines.push(isWolf ? formatWolfPost(post) : formatPost(post));
+      lines.push(formatPost(post));
     });
   } else {
     lines.push('（まだ発言はありません）');
