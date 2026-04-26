@@ -69,10 +69,10 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push(alivePlayersText || 'なし');
   lines.push('');
 
-  lines.push('# 留意点');
-  lines.push('占い師は初日、白判定になる人物を無作為に一人告げられます。');
-  lines.push('会議中いつでも投票、再投票できます。');
-  lines.push('全員が投票したら会議は終了します。');
+  lines.push('# ルールの補足');
+  lines.push('占い師は初日、白判定になる人物を無作為に一人告げられる。');
+  lines.push('会議中いつでも投票、再投票できる。');
+  lines.push('全員が投票したら会議は終了する。');
   lines.push('');
 
   lines.push('# 前日までのあらすじ');
@@ -88,9 +88,9 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   }
 
   if (hunterResult) {
-    lines.push('# 護衛結果（全日程）');
+    lines.push('# 護衛結果');
     const names = hunterResult.guardedNames || (hunterResult.guardedName ? [hunterResult.guardedName] : []);
-    names.forEach((name) => lines.push(`${name} を護衛しました`));
+    names.forEach((name) => lines.push(`${name} を護衛した`));
     lines.push('');
   }
 
@@ -150,12 +150,11 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push('');
 
   lines.push('# 出力形式');
-  lines.push('必ず以下のJSON形式に従って出力してください:');
   lines.push(JSON.stringify({
     posts: [{ name: '人物名（必須）', thinking: '冷静な分析（省略可）', coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容（必須。10～30文字）', status: '表情（必須）', villager: { name: '白だしする人物名（省略可）' }, werewolf: { name: '黒だしする人物名（省略可）' }, vote: '投票先人物名（省略可）' },
       { name: '人物名', talk: '発言内容', status: '表情' },
     ],
-    summary: "発言の要約"
+    summary: "発言の要点を端的に要約（必須）"
   }, null, 2));
 
   return lines.join('\n');

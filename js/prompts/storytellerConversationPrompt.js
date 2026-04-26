@@ -13,10 +13,10 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
 
   lines.push('あなたは人狼ゲームの脚本家です。');
   lines.push('今日のチャットに続くシナリオを執筆し、そこから発言する順番を考えてください。');
-  lines.push('知略に富んだ論理的な展開を心がけてください。');
+  lines.push('個性溢れる巧妙で論理的な展開を心がけてください。');
   lines.push('');
 
-  lines.push('# 留意点');
+  lines.push('# ルールの補足');
   lines.push('占い師は初日、白判定になる人物を無作為に一人告げられる。');
   lines.push('会議中いつでも投票、再投票できる。');
   lines.push('全員が投票したら会議は終了する。');
@@ -28,9 +28,8 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
 
   lines.push('# 人物一覧');
   allPlayers.forEach(({ name, role, isAlive, isHuman, personality, firstPersonPronouns, speakingStyle, currentVote }) => {
-    lines.push(`## ${name}`);
+    lines.push(`## ${name}${isAlive ? '' : '（死亡）'}`);
     lines.push(`役職: ${role?.name || '不明'}`);
-    lines.push(`生存: ${isAlive ? '生存' : '死亡'}`);
     if (isHuman) lines.push(`※この人物は{#私}です`);
     if (personality) lines.push(`個性: ${personality}`);
   });
@@ -74,11 +73,12 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
   lines.push('name は生存者のみ。');
   lines.push('{#私}は沈黙すると仮定する。');
   lines.push('水平思考な体言止めの文章を心がける。');
-  lines.push('summary は20文字以内。収まらなければ連投する。');
+  lines.push('summary は10～20文字以内。');
   lines.push('');
 
   lines.push('# 出力形式');
   lines.push(JSON.stringify({
+    scenario: "今日のチャットの続きから投票完了までの議論の概要を300文字以内で執筆する。",
     sequence: [
       { name: '人物名', summary: '発言概要' },
       { name: '人物名', summary: '発言概要' },
