@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      // PromptSheet.tsv からキャラクター情報を読み込む
+      // PromptSheet.tsv から personality 情報を読み込む
       await loadPersonalitiesFromTsv();
 
       const settings = {

@@ -68,7 +68,7 @@ class GameState {
         role: null,
         isAlive: true,
         isHuman: false,
-        personality: p.character || p.style || '',
+        personality: p.personality || p.individuality || p.character || p.style || '',
         firstPersonPronouns: p.firstPersonPronouns || '',
         speakingStyle: p.speakingStyle || '',
         coRole: null,

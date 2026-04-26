@@ -22,7 +22,7 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
     lines.push(`役職: ${role?.name || '不明'}`);
     lines.push(`生存: ${isAlive ? '生存' : '死亡'}`);
     if (isHuman) lines.push(`※この人物は{#私}です`);
-    if (personality) lines.push(`個性: ${personality}`);
+    if (personality) lines.push(`性格: ${personality}`);
     if (currentVote) lines.push(`現在の投票先: ${currentVote}`);
   });
   lines.push('');

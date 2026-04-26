@@ -177,13 +177,13 @@ function buildRoleDeck(totalPlayers, werewolfCount, optionalRoleIds = []) {
 
 // personality/PromptSheet.tsv から読み込んだデータで上書きされます（フォールバック用）
 let AI_PERSONALITIES = [
-  { name: 'ムライ',  character: '堅物な仙人',              firstPersonPronouns: '某',      speakingStyle: '古語。である調' },
-  { name: 'シノブ',  character: '明るいなりきり忍者少女',   firstPersonPronouns: '拙者',    speakingStyle: '古語。ござる調' },
-  { name: 'レイ',    character: '中二病少年',               firstPersonPronouns: '我',      speakingStyle: '難解。である調' },
-  { name: 'ルナピ',  character: '不真面目JKギャル',         firstPersonPronouns: 'アタシ',  speakingStyle: 'くだけた口調。語尾を伸ばす' },
-  { name: 'サマヨ',  character: '高飛車お嬢様',             firstPersonPronouns: 'ワタクシ', speakingStyle: '強気。ですわ調' },
-  { name: 'ヒョウタ', character: '卑怯な青年',              firstPersonPronouns: 'おいら',  speakingStyle: '弱気。吃音' },
-  { name: 'マサオ',  character: '自信家な生徒会長の男子高生', firstPersonPronouns: '僕',     speakingStyle: '簡潔にハッキリと話す' },
+  { name: 'ムライ',  personality: '堅物',    firstPersonPronouns: '某',      speakingStyle: '古語。である調' },
+  { name: 'シノブ',  personality: '快活',    firstPersonPronouns: '拙者',    speakingStyle: '古語。ござる調' },
+  { name: 'レイ',    personality: '強がり',  firstPersonPronouns: '我',      speakingStyle: '難解。である調' },
+  { name: 'ルナピ',  personality: '無気力',  firstPersonPronouns: 'アタシ',  speakingStyle: 'くだけた口調。語尾を伸ばす' },
+  { name: 'サマヨ',  personality: '高飛車',  firstPersonPronouns: 'ワタクシ', speakingStyle: '強気。ですわ調' },
+  { name: 'ヒョウタ', personality: '臆病',   firstPersonPronouns: 'おいら',  speakingStyle: '弱気。吃音' },
+  { name: 'マサオ',  personality: '自信家',  firstPersonPronouns: '僕',     speakingStyle: '簡潔にハッキリと話す' },
 ];
 
 /**
@@ -198,15 +198,23 @@ async function loadPersonalitiesFromTsv(tsvPath = 'personality/PromptSheet.tsv')
     const text = await res.text();
     const lines = text.trim().split('\n');
     if (lines.length < 2) return false;
-    // 1行目はヘッダー（name\tcharacter\tfirstPersonPronouns\tspeakingStyle）
+    // 1行目はヘッダー（name\tpersonality\tindividuality\tfirstPersonPronouns\tspeakingStyle）
+    const headers = lines[0].split('\t').map((header) => header.trim());
     const parsed = lines.slice(1).map((line) => {
-      const [name, character, firstPersonPronouns, speakingStyle] = line.split('\t');
-      if (!name || !character) return null;
+      const values = line.split('\t');
+      const row = headers.reduce((acc, header, index) => {
+        acc[header] = values[index] || '';
+        return acc;
+      }, {});
+      const name = (row.name || '').trim();
+      const personality = (row.personality || row.individuality || row.character || '').trim();
+      if (!name || !personality) return null;
       return {
-        name: name.trim(),
-        character: character.trim(),
-        firstPersonPronouns: (firstPersonPronouns || '').trim(),
-        speakingStyle: (speakingStyle || '').trim(),
+        name,
+        personality,
+        individuality: (row.individuality || row.character || '').trim(),
+        firstPersonPronouns: (row.firstPersonPronouns || '').trim(),
+        speakingStyle: (row.speakingStyle || '').trim(),
       };
     }).filter(Boolean);
     if (parsed.length === 0) return false;
