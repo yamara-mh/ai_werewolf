@@ -20,7 +20,7 @@ function buildSynopsisUserPrompt(day, previousSynopsis, todayPosts) {
   }
 
   lines.push(`# ${day}日目のチャット`);
-  todayPosts.forEach((post) => lines.push(_formatPostSimple(post)));
+  lines.push(formatPublicPostsAsToon(todayPosts));
   lines.push('');
 
   lines.push(

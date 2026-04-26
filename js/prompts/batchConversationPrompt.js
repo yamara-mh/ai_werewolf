@@ -60,7 +60,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   const lines = [];
 
   const roomPrefix = roomLevelLabel ? `${roomLevelLabel}による` : '';
-  lines.push(`${roomPrefix}人狼ゲームの今日のチャットの続き${targetCount}ポストを、必ずjson形式で出力してください。`);
+  lines.push(`${roomPrefix}人狼ゲームの今日のチャットの続き${targetCount}ポストを、必ずTOON（Token-Oriented Object Notation）形式で出力してください。`);
   lines.push('登場人物は talk の情報を頼りに思考するため、誤った推論をすることがあります。');
 
   if (roomLevelPrompt) {
@@ -107,9 +107,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   ].sort((a, b) => (a.post.id || 0) - (b.post.id || 0));
 
   lines.push('# 今日のチャット');
-  allTodayPosts.forEach(({ post, isWolf }) => {
-    lines.push(isWolf ? _formatWolfPostSimple(post) : _formatPostSimple(post));
-  });
+  lines.push(formatMixedPostsAsToon(allTodayPosts));
   lines.push('');
 
   if (currentVotes && currentVotes.length > 0) {
@@ -125,12 +123,22 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   }
 
   lines.push('# 出力形式');
-  lines.push('以下のJSON形式で出力してください：');
-  lines.push(JSON.stringify({
-    posts: [{ name: 'プレイヤー名（必須）', coRole: 'カミングアウトする役職ID（省略可）', thinking: '冷静な分析（省略可）', talk: '発言内容（省略可。10～30文字）', status: '表情', villager: [{ name: '白だしするプレイヤー名の配列（省略可）' }], werewolf: ['黒だしするプレイヤー名の配列（省略可）'], vote: '投票先プレイヤー名（省略可）' },
-      { name: 'プレイヤー名（必須）', talk: '連投可能（必須。10～30文字）', status: '表情（必須）' }],
-  }, null, 2));
-  
+  lines.push('以下の TOON 形式で出力してください：');
+  lines.push(
+    'posts[N]:\n' +
+    '  - name: プレイヤー名（必須）\n' +
+    '    coRole: カミングアウトする役職ID（省略可）\n' +
+    '    thinking: 冷静な分析（省略可）\n' +
+    '    talk: 発言内容（省略可。10～30文字）\n' +
+    '    status: 表情（必須）\n' +
+    '    villager[N]: 白だしするプレイヤー名（省略可、複数はカンマ区切り）\n' +
+    '    werewolf[N]: 黒だしするプレイヤー名（省略可、複数はカンマ区切り）\n' +
+    '    vote: 投票先プレイヤー名（省略可）\n' +
+    '  - name: プレイヤー名（必須）\n' +
+    '    talk: 連投可能（必須。10～30文字）\n' +
+    '    status: 表情（必須）'
+  );
+
   lines.push('');
   lines.push('## 詳細');
   lines.push(`coRole の値は次のいずれか（省略可）：villager, seer, medium, hunter, madman, werewolf, shared, cat, fox`);

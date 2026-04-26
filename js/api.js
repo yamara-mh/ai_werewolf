@@ -1,5 +1,12 @@
 // LLM API 通信
 // Gemini / OpenAI 互換 API への共通リクエスト関数
+//
+// 【TOON フォーマットの API サポート状況 (2025年)】
+// Gemini API  : TOON 非対応。responseMimeType は 'application/json' と 'text/plain' のみ。
+//               structured output は JSON Schema (responseSchema) で指定する。
+// OpenAI API  : TOON 非対応。response_format は 'json_object' / 'json_schema' のみ。
+// → 本アプリでは TOON 出力をプロンプト指示で制御します。
+//   jsonMode は後方互換のため残しますが、TOON を要求する場合は使用しません（JSON 強制モードになるため）。
 
 const LLM_LOG_KEY = 'ai_werewolf_llm_log';
 const LLM_LOG_MAX = 200;
