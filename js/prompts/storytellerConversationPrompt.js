@@ -11,9 +11,9 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
     ? _formatWolfPostSimple
     : (post) => JSON.stringify({ name: toSpeakerName(post), werewolfOnlySecretTalk: post.content || '' });
 
-  lines.push('あなたは人狼ゲームの監督です。');
-  lines.push('今日のチャットの先の展開を予想し、JSONで結果を生成してください。');
-  lines.push('論理的で面白い予想を心がけ、投票完了まで予想し切ってください。');
+  lines.push('あなたは人狼ゲームの脚本家です。');
+  lines.push('今日のチャットの続きとなる scenario を8件考えてください。');
+  lines.push('論理的で面白いシナリオを心がけてください。');
   lines.push('');
 
   lines.push('# 人物一覧');
@@ -78,15 +78,13 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
   lines.push('# 出力の補足');
   lines.push('name は必ず生存者のみになります。');
   lines.push('予想の中では、{#私}は沈黙すると仮定してください。');
-  lines.push('thinking, talk はそれぞれ5～30文字前後で、冷静で論理的な体言止めにしてください。');
+  lines.push('冷静で水平思考な体言止めの文章を心がけてください。');
 
   lines.push('# 出力形式');
   lines.push(JSON.stringify({
     scenario: [
-      { thinking: '次の発言者と立ち回りの考察'},
-      { name: '人物名', talk: '発言' },
-      { thinking: '考察'},
-      { name: '人物名', talk: '発言' },
+      { situation: '状況解説', thinking:'戦略', name: '人物名', summary: '発言概要' },
+      { situation: '状況解説', thinking:'戦略', name: '人物名', summary: '発言概要' },
     ],
   }, null, 2));
   lines.push('');
