@@ -1075,8 +1075,12 @@ class PrecisionConversationAI {
       if (results.length === 0) throw new Error('有効な投稿がありません');
 
       // summary を保持してトークン節約のため次回の #今日のチャット に使用する
+      // 各発言者の要約を「名前: 要約」形式で累積して今日のチャットを構築する
       if (typeof data.summary === 'string' && data.summary.trim()) {
-        this._todaySummary = data.summary.trim();
+        const summaryLine = `${speaker.name}: ${data.summary.trim()}`;
+        this._todaySummary = this._todaySummary
+          ? `${this._todaySummary}\n${summaryLine}`
+          : summaryLine;
       }
 
       return results;
