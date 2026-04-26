@@ -1021,11 +1021,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderChatTopActions();
     try {
       if (!gs.settings.tokenSavingMode) {
-        // 標準モード: 1発言ずつ生成（最新の会話状態を反映）、連投で複数件返ることがある
+        // 標準モード: 1発言ずつ順番に生成。
+        // conversationBuffer には bbsLog 未反映の投稿が蓄積されているため、
+        // それらを含む unreflectedPosts を各 generateNext() に渡す。
+        // これにより、次の発言者プロンプトにバッファ内の全未反映投稿が反映される。
         const genCount = Math.max(1, count);
+        const unreflectedPosts = [...conversationBuffer]; // バッファ内の既存未反映投稿を引き継ぐ
         for (let i = 0; i < genCount; i++) {
-          const posts = await precisionConversationAI.generateNext();
-          if (posts && posts.length > 0) conversationBuffer.push(...posts);
+          const posts = await precisionConversationAI.generateNext(unreflectedPosts.length > 0 ? unreflectedPosts : null);
+          if (posts && posts.length > 0) {
+            conversationBuffer.push(...posts);
+            unreflectedPosts.push(...posts); // 今生成した投稿も次イテレーションで未反映として渡す
+          }
         }
       } else {
         const result = await batchConversationAI.generateAdventure(count);
@@ -1134,9 +1141,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     renderPlayers();
     gs.save();
-    if (!gs.settings.tokenSavingMode) {
-      precisionConversationAI.invalidateStory();
-    }
 
     // バッファが少ない場合、次の会話を生成開始
     tryGenerateNextConversation();

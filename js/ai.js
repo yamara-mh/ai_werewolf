@@ -745,23 +745,17 @@ class PrecisionConversationAI {
     this.gameState = gameState;
     this._storySteps = [];
     this._waitingForHumanName = null;
-    this._nextPreparedPosts = null; // 次の発言者の準備済み投稿
-    this._isPreparingNext = false; // 次の発言準備中フラグ
   }
 
   // 昼フェーズ開始時にリセット
   resetQueue() {
     this._storySteps = [];
     this._waitingForHumanName = null;
-    this._nextPreparedPosts = null;
-    this._isPreparingNext = false;
   }
 
   invalidateStory() {
     this._storySteps = [];
     this._waitingForHumanName = null;
-    this._nextPreparedPosts = null;
-    this._isPreparingNext = false;
   }
 
   // ストーリーを再生成（公開メソッド）
@@ -911,23 +905,10 @@ class PrecisionConversationAI {
 
   // 次のスピーカーの発言を1件以上生成して返す
   // 戻り値: [{ name, talk, coRole, vote, status, verdictWhite, verdictBlack }, ...] | null
-  async generateNext() {
+  // unreflectedPosts: conversationBuffer に蓄積済みだが bbsLog にまだ反映されていない投稿の全リスト（省略可）
+  async generateNext(unreflectedPosts = null) {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
-
-    // バックグラウンド準備中の場合は完了まで待機
-    while (this._isPreparingNext) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    // 既に準備された投稿がある場合はそれを返す
-    if (this._nextPreparedPosts && this._nextPreparedPosts.length > 0) {
-      const posts = this._nextPreparedPosts;
-      this._nextPreparedPosts = null;
-      // バックグラウンドで次の投稿を準備開始（今返した投稿を未反映として渡す）
-      this._prepareNextInBackground(posts);
-      return posts;
-    }
 
     const { speaker, storyStep } = await this._determineSpeaker();
     if (!speaker) return null;
@@ -937,7 +918,7 @@ class PrecisionConversationAI {
     }
 
     const systemPrompt = this._buildSystemPrompt(speaker);
-    const userPrompt = this._buildUserPrompt(speaker, storyStep);
+    const userPrompt = this._buildUserPrompt(speaker, storyStep, unreflectedPosts);
     const fullPrompt = systemPrompt + '\n\n' + userPrompt;
 
     try {
@@ -945,54 +926,10 @@ class PrecisionConversationAI {
         maxTokens: 2000,
         reasoningEffort,
       });
-      const posts = this._parseResponse(responseText, speaker);
-      // バックグラウンドで次の投稿を準備開始（今返した投稿を未反映として渡す）
-      this._prepareNextInBackground(posts);
-      return posts;
+      return this._parseResponse(responseText, speaker);
     } catch (e) {
       console.warn(`精度向上モード発言生成エラー (${speaker.name}):`, e);
       return [this._fallback(speaker)];
-    }
-  }
-
-  // バックグラウンドで次の投稿を準備
-  async _prepareNextInBackground(previouslyReturnedPosts = null) {
-    // 既に準備中または準備済みの場合は何もしない
-    if (this._isPreparingNext || this._nextPreparedPosts) return;
-    
-    // フラグを即座に設定して競合を防ぐ
-    this._isPreparingNext = true;
-    
-    try {
-      const gs = this.gameState;
-      const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
-
-      const { speaker, storyStep } = await this._determineSpeaker();
-      if (!speaker) {
-        return;
-      }
-
-      if (!aiApiKey) {
-        this._nextPreparedPosts = [this._fallback(speaker)];
-        return;
-      }
-
-      const systemPrompt = this._buildSystemPrompt(speaker);
-      // previouslyReturnedPosts は直前に generateNext() で返された投稿で、
-      // まだ bbsLog に反映されていない未反映の投稿として扱う
-      const userPrompt = this._buildUserPrompt(speaker, storyStep, previouslyReturnedPosts);
-      const fullPrompt = systemPrompt + '\n\n' + userPrompt;
-
-      const responseText = await callAI(fullPrompt, aiApiKey, aiModel, {
-        maxTokens: 2000,
-        reasoningEffort,
-      });
-      this._nextPreparedPosts = this._parseResponse(responseText, speaker);
-    } catch (e) {
-      console.warn('バックグラウンド発言生成エラー:', e);
-      this._nextPreparedPosts = null;
-    } finally {
-      this._isPreparingNext = false;
     }
   }
 
