@@ -20,7 +20,7 @@ async function callAI(userPrompt, apiKey, model, options = {}) {
   const validReasoningEffort = ['minimal', 'low', 'medium', 'high'].includes(reasoningEffort)
     ? reasoningEffort
     : 'medium';
-  const reasoningTokenMultiplier = { minimal: 0.5, low: 1, medium: 1.5, high: 2 };
+  const reasoningTokenMultiplier = { minimal: 1, low: 1, medium: 1.5, high: 2 };
   const scaledMaxTokens = Math.ceil(maxTokens * (reasoningTokenMultiplier[validReasoningEffort] ?? 1));
 
   const timestamp = new Date().toLocaleTimeString('ja-JP', { hour12: false });
