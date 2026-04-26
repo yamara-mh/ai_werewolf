@@ -753,6 +753,7 @@ class PrecisionConversationAI {
   constructor(gameState) {
     this.gameState = gameState;
     this._storySteps = [];
+    this._storyScenario = '';
     this._waitingForHumanName = null;
     this._todaySummary = null;
   }
@@ -760,12 +761,14 @@ class PrecisionConversationAI {
   // 昼フェーズ開始時にリセット
   resetQueue() {
     this._storySteps = [];
+    this._storyScenario = '';
     this._waitingForHumanName = null;
     this._todaySummary = null;
   }
 
   invalidateStory() {
     this._storySteps = [];
+    this._storyScenario = '';
     this._waitingForHumanName = null;
   }
 
@@ -781,11 +784,13 @@ class PrecisionConversationAI {
 
     if (alivePlayers.length === 0) {
       this._storySteps = [];
+      this._storyScenario = '';
       return;
     }
 
     if (!aiApiKey) {
       this._storySteps = this._fallbackStory();
+      this._storyScenario = '';
       return;
     }
 
@@ -831,10 +836,13 @@ class PrecisionConversationAI {
         maxTokens: 10000,
         reasoningEffort,
       });
-      this._storySteps = this._parseStoryResponse(responseText);
+      const { steps, scenario } = this._parseStoryResponse(responseText);
+      this._storySteps = steps;
+      this._storyScenario = scenario;
     } catch (e) {
       console.warn('ストーリーテラーAI生成エラー:', e);
       this._storySteps = this._fallbackStory();
+      this._storyScenario = '';
     }
   }
 
@@ -849,6 +857,7 @@ class PrecisionConversationAI {
           : Array.isArray(parsed)
             ? parsed
             : [];
+    const scenarioText = typeof parsed?.scenario === 'string' ? parsed.scenario.trim() : '';
     const validNames = new Set(this.gameState.getAlivePlayers().map((p) => p.name));
     const steps = scenario
       .filter((step) => step && typeof step.name === 'string' && validNames.has(step.name.trim()))
@@ -860,7 +869,7 @@ class PrecisionConversationAI {
       }));
 
     if (steps.length === 0) throw new Error('ストーリーシナリオが空です');
-    return steps;
+    return { steps, scenario: scenarioText };
   }
 
   _fallbackStory() {
@@ -1028,6 +1037,7 @@ class PrecisionConversationAI {
       player: speaker,
       day: gs.day,
       alivePlayersText,
+      storyScenarioText: this._storyScenario,
       storyDirectionText,
       previousDaysSynopsis: gs.previousDaysSynopsis || '',
       todayPosts,

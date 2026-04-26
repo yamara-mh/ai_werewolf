@@ -51,6 +51,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {object} params.player             発言するプレイヤー
  * @param {number} params.day                現在の日数
  * @param {string} params.alivePlayersText   生存人物名（読点区切り、自分を含む）
+ * @param {string} params.storyScenarioText  ストーリーテラーAIが想定した当日の議論全体の概要
  * @param {string} params.storyDirectionText ストーリーテラーAIが想定した今回の発言要約
  * @param {string} params.previousDaysSynopsis 前日までのあらすじ
  * @param {Array}  params.todayPosts         今日の公開チャット投稿配列
@@ -62,7 +63,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {Array}  params.currentVotes       現在の投票状況 [{voterName, targetName}]
  * @param {Array}  params.unreflectedPosts   前回生成されたがまだチャットに反映されていない投稿配列（省略可）
  */
-function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDirectionText, previousDaysSynopsis, todayPosts, todaySummary, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes, unreflectedPosts }) {
+function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyScenarioText, storyDirectionText, previousDaysSynopsis, todayPosts, todaySummary, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes, unreflectedPosts }) {
   const lines = [];
 
   lines.push('# 生存プレイヤー');
@@ -78,6 +79,18 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push('# 前日までのあらすじ');
   lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
+
+  if (storyScenarioText) {
+    lines.push('# 今日の議論シナリオ');
+    lines.push(storyScenarioText);
+    lines.push('');
+  }
+
+  if (storyDirectionText) {
+    lines.push('# 今回の発言方針');
+    lines.push(storyDirectionText);
+    lines.push('');
+  }
 
   if (seerResults && seerResults.length > 0) {
     lines.push('# 占い結果');
