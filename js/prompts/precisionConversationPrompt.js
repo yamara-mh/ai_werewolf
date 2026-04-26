@@ -72,6 +72,28 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
 
+  if (seerResults && seerResults.length > 0) {
+    lines.push('# 占い結果');
+    seerResults.forEach(({ targetName, isWerewolf }) => {
+      lines.push(`${targetName}: ${isWerewolf ? '人狼' : '人狼ではない'}`);
+    });
+    lines.push('');
+  }
+
+  if (hunterResult) {
+    lines.push('# 護衛結果（前夜）');
+    lines.push(`${hunterResult.guardedName} を護衛しました`);
+    lines.push('');
+  }
+
+  if (mediumResults && mediumResults.length > 0) {
+    lines.push('# 霊媒結果');
+    mediumResults.forEach(({ targetName, isWerewolf }) => {
+      lines.push(`${targetName}: ${isWerewolf ? '人狼' : '人狼ではない'}`);
+    });
+    lines.push('');
+  }
+
   lines.push('# 今日のチャット');
   // 人狼チャット（werewolfOnlySecretTalk）を通常チャットに混合して時系列で表示
   // wolfPosts は人狼（大狼）のみ受け取る。それ以外は空配列
@@ -101,28 +123,6 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   
   lines.push('');
 
-  if (seerResults && seerResults.length > 0) {
-    lines.push('# 占い結果');
-    seerResults.forEach(({ targetName, isWerewolf }) => {
-      lines.push(`${targetName}: ${isWerewolf ? '人狼' : '人狼ではない'}`);
-    });
-    lines.push('');
-  }
-
-  if (hunterResult) {
-    lines.push('# 護衛結果（前夜）');
-    lines.push(`${hunterResult.guardedName} を護衛しました`);
-    lines.push('');
-  }
-
-  if (mediumResults && mediumResults.length > 0) {
-    lines.push('# 霊媒結果');
-    mediumResults.forEach(({ targetName, isWerewolf }) => {
-      lines.push(`${targetName}: ${isWerewolf ? '人狼' : '人狼ではない'}`);
-    });
-    lines.push('');
-  }
-
   if (currentVotes && currentVotes.length > 0) {
     lines.push('# 現在の投票状況');
     currentVotes.forEach(({ voterName, targetName }) => lines.push(`${voterName} → ${targetName}`));
@@ -135,15 +135,16 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push(`status の値は次のいずれか: default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（省略可）');
   lines.push('villager, werewolf は役職持ちが明確に白だし（黒だし）した場合のみ設定する。');
-  lines.push('post の配列数は発言の情報量や個性に応じて1～5回ほどにする。');
+  lines.push('posts の配列数は発言の情報量や個性に応じて1～5回ほどにする。');
   lines.push('');
 
   lines.push('# 出力形式');
   lines.push('必ず以下のJSON形式に従って出力してください:');
   lines.push(JSON.stringify({
     posts: [{ name: '人物名（必須）', thinking: '冷静な分析（省略可）', coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容（必須。10～30文字）', status: '表情（必須）', villager: { name: '白だしする人物名（省略可）' }, werewolf: { name: '黒だしする人物名（省略可）' }, vote: '投票先人物名（省略可）' },
-      { name: '人物名', talk: '発言内容（10～30文字）', status: '表情' },
+      { name: '人物名', talk: '発言内容', status: '表情' },
     ],
+    summary: "発言の要約"
   }, null, 2));
 
   return lines.join('\n');
