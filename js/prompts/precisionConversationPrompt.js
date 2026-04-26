@@ -154,7 +154,7 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
     posts: [{ name: '人物名（必須）', thinking: '冷静な分析（省略可）', coRole: 'カミングアウトする役職ID（省略可）', talk: '発言内容（必須。10～30文字）', status: '表情（必須）', villager: { name: '白だしする人物名（省略可）' }, werewolf: { name: '黒だしする人物名（省略可）' }, vote: '投票先人物名（省略可）' },
       { name: '人物名', talk: '発言内容', status: '表情' },
     ],
-    summary: "発言の要点を端的に要約（必須）"
+    summary: '発言の要点を端的に要約（必須）'
   }, null, 2));
 
   return lines.join('\n');
