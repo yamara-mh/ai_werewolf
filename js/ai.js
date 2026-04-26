@@ -133,6 +133,29 @@ function _findMatchingClosingIndex(text, startIndex, openChar, closeChar) {
 // AI プレイヤーロジック
 // callAI は api.js、プロンプト構築は prompts.js で定義されています
 
+/**
+ * 騎士の護衛履歴からhunterResultオブジェクトを構築するヘルパー。
+ * @param {boolean} isHunter
+ * @param {object} player
+ * @param {GameState} gs
+ * @returns {{ guardedNames: string[] } | null}
+ */
+function _buildHunterResult(isHunter, player, gs) {
+  if (!isHunter) return null;
+  if (Array.isArray(player.guardedIds) && player.guardedIds.length > 0) {
+    const names = player.guardedIds
+      .map((id) => gs.getPlayer(id))
+      .filter(Boolean)
+      .map((p) => p.name);
+    return names.length > 0 ? { guardedNames: names } : null;
+  }
+  if (player.lastGuardedId) {
+    const guarded = gs.getPlayer(player.lastGuardedId);
+    return guarded ? { guardedNames: [guarded.name] } : null;
+  }
+  return null;
+}
+
 // --- AIプレイヤー（夜アクション専用） ---
 
 class AIPlayer {
@@ -660,12 +683,7 @@ class PlayerPropertyAI {
           .map((p) => ({ targetName: p.name, isWerewolf: p.seerVerdict === 'black' }))
       : [];
 
-    const hunterResult = (isHunter && player.lastGuardedId)
-      ? (() => {
-          const guarded = gs.getPlayer(player.lastGuardedId);
-          return guarded ? { guardedName: guarded.name } : null;
-        })()
-      : null;
+    const hunterResult = _buildHunterResult(isHunter, player, gs);
 
     const mediumResults = isMedium
       ? gs.players
@@ -736,12 +754,14 @@ class PrecisionConversationAI {
     this.gameState = gameState;
     this._storySteps = [];
     this._waitingForHumanName = null;
+    this._todaySummary = null;
   }
 
   // 昼フェーズ開始時にリセット
   resetQueue() {
     this._storySteps = [];
     this._waitingForHumanName = null;
+    this._todaySummary = null;
   }
 
   invalidateStory() {
@@ -820,13 +840,15 @@ class PrecisionConversationAI {
 
   _parseStoryResponse(responseText) {
     const parsed = _extractJsonFromText(responseText);
-    const scenario = Array.isArray(parsed?.scenario)
-      ? parsed.scenario
-      : Array.isArray(parsed?.steps)
-        ? parsed.steps
-        : Array.isArray(parsed)
-          ? parsed
-          : [];
+    const scenario = Array.isArray(parsed?.sequence)
+      ? parsed.sequence
+      : Array.isArray(parsed?.scenario)
+        ? parsed.scenario
+        : Array.isArray(parsed?.steps)
+          ? parsed.steps
+          : Array.isArray(parsed)
+            ? parsed
+            : [];
     const validNames = new Set(this.gameState.getAlivePlayers().map((p) => p.name));
     const steps = scenario
       .filter((step) => step && typeof step.name === 'string' && validNames.has(step.name.trim()))
@@ -937,7 +959,22 @@ class PrecisionConversationAI {
     const sharedPartner = role?.id === ROLES.SHARED.id
       ? (gs.players.find((p) => p.id !== speaker.id && p.role?.id === ROLES.SHARED.id)?.name || null)
       : null;
-    return buildPrecisionSystemPrompt(speaker, teammates, roomLevelPrompt, sharedPartner);
+
+    // 話し方の例: 発言済み投稿から最初・中間・最後の3つを選ぶ
+    const pastTalks = gs.bbsLog
+      .filter((p) => p.playerName === speaker.name && p.type === 'speech' && p.content)
+      .map((p) => p.content);
+    let speakingExamples = [];
+    if (pastTalks.length >= 3) {
+      const first = pastTalks[0];
+      const last = pastTalks[pastTalks.length - 1];
+      const midIndex = Math.floor((pastTalks.length - 1) / 2);
+      speakingExamples = [first, pastTalks[midIndex], last];
+    } else if (pastTalks.length > 0) {
+      speakingExamples = pastTalks;
+    }
+
+    return buildPrecisionSystemPrompt(speaker, teammates, roomLevelPrompt, sharedPartner, speakingExamples);
   }
 
   _buildUserPrompt(speaker, storyStep = null, unreflectedPosts = null) {
@@ -969,13 +1006,8 @@ class PrecisionConversationAI {
           .map((p) => ({ targetName: p.name, isWerewolf: p.seerVerdict === 'black' }))
       : [];
 
-    // 騎士のみ前夜の護衛対象を知っている
-    const hunterResult = (isHunter && speaker.lastGuardedId)
-      ? (() => {
-          const guarded = gs.getPlayer(speaker.lastGuardedId);
-          return guarded ? { guardedName: guarded.name } : null;
-        })()
-      : null;
+    // 騎士のみ全日程の護衛対象を知っている
+    const hunterResult = _buildHunterResult(isHunter, speaker, gs);
 
     // 霊媒師のみ処刑済みプレイヤーの役職を知っている
     const mediumResults = isMedium
@@ -999,6 +1031,7 @@ class PrecisionConversationAI {
       storyDirectionText,
       previousDaysSynopsis: gs.previousDaysSynopsis || '',
       todayPosts,
+      todaySummary: this._todaySummary,
       wolfPosts,
       seerResults,
       hunterResult,
@@ -1040,6 +1073,12 @@ class PrecisionConversationAI {
       }).filter((p) => p.talk || p.coRole || p.vote);
 
       if (results.length === 0) throw new Error('有効な投稿がありません');
+
+      // summary を保持してトークン節約のため次回の #今日のチャット に使用する
+      if (typeof data.summary === 'string' && data.summary.trim()) {
+        this._todaySummary = data.summary.trim();
+      }
+
       return results;
     } catch (e) {
       // 途切れた出力から部分的に talk を抽出して投稿する
