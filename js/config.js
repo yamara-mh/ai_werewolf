@@ -198,7 +198,7 @@ async function loadPersonalitiesFromTsv(tsvPath = 'personality/PromptSheet.tsv')
     const text = await res.text();
     const lines = text.trim().split('\n');
     if (lines.length < 2) return false;
-    // 1行目はヘッダー（name\tpersonality\tindividuality\tfirstPersonPronouns\tspeakingStyle）
+    // 1行目はヘッダー（name\tpersonality\tfirstPersonPronouns\tspeakingStyle を利用）
     const headers = lines[0].split('\t').map((header) => header.trim());
     const parsed = lines.slice(1).map((line) => {
       const values = line.split('\t');

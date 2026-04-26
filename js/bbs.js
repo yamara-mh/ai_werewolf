@@ -25,7 +25,9 @@ function _buildPortraitCandidateSources(src) {
     return candidates;
   }
 
-  const [, dir, status, ext] = match;
+  const dir = match[1];
+  const status = match[2];
+  const ext = match[3];
   const alternateExt = ext === 'png' ? 'jpg' : 'png';
 
   pushCandidate(src);
