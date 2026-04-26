@@ -146,7 +146,8 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push(`status の値は次のいずれか: default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（省略可）');
   lines.push('villager, werewolf は役職持ちが明確に白だし（黒だし）した場合のみ設定する。');
-  lines.push('posts の配列数は発言の情報量や個性に応じて1～5回ほどにする。');
+  lines.push('summary は全ての talk を要約したもの。例：私は霊媒師。Aは白。Bが怪しい');
+  lines.push('posts の配列数は個性や発言の情報量に応じて1～3回ほどにする。');
   lines.push('');
 
   lines.push('# 出力形式');
