@@ -78,7 +78,7 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
 
   lines.push('# 出力形式');
   lines.push(JSON.stringify({
-    scenario: "今日のチャットの続きから投票完了までの議論の概要を300文字以内で執筆する。",
+    scenario: '今日のチャットの続きから投票完了までの議論の概要を300文字以内で執筆する。',
     sequence: [
       { name: '人物名', summary: '発言概要' },
       { name: '人物名', summary: '発言概要' },
