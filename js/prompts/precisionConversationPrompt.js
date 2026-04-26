@@ -31,7 +31,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
   lines.push(`名前: ${player.name}`);
   lines.push(`役職: ${role?.name || '不明'}（${role?.description || ''}）`);
   lines.push(`チーム: ${teamLabel}`);
-  if (player.personality)           lines.push(`性格: ${player.personality}`);
+  if (player.personality)           lines.push(`個性: ${player.personality}`);
   if (player.firstPersonPronouns)   lines.push(`一人称: ${player.firstPersonPronouns}`);
   if (player.speakingStyle)         lines.push(`話し方: ${player.speakingStyle}`);
   if (isWolf && teammates)          lines.push(`仲間の人狼: ${teammates}`);
@@ -135,7 +135,7 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push(`status の値は次のいずれか: default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（省略可）');
   lines.push('villager, werewolf は役職持ちが明確に白だし（黒だし）した場合のみ設定する。');
-  lines.push('post の配列数は発言の情報量や性格に応じて1～5回ほどにする。');
+  lines.push('post の配列数は発言の情報量や個性に応じて1～5回ほどにする。');
   lines.push('');
 
   lines.push('# 出力形式');

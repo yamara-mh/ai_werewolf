@@ -68,7 +68,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
     lines.push('');
   }
 
-  lines.push('# 登場人物の名前、役職、性格');
+  lines.push('# 登場人物の名前、役職、個性');
   const shuffledPlayers = [...allPlayers];
   for (let i = shuffledPlayers.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -81,7 +81,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
       lines.push('この人物のセリフは私が担当します。絶対に発言を生成しないでください。');
     } else {
       lines.push(`役職：${role?.name || '村人'}`);
-      if (personality) lines.push(`性格：${personality}`);
+      if (personality) lines.push(`個性：${personality}`);
       if (firstPersonPronouns) lines.push(`一人称：${firstPersonPronouns}`);
       if (speakingStyle) lines.push(`話し方：${speakingStyle}`);
       if (currentVote) lines.push(`現在の投票先：${currentVote}`);
@@ -137,7 +137,7 @@ function _buildChatPrompt({ roomLevelLabel, roomLevelPrompt, allPlayers, previou
   lines.push(`status の値は次のいずれか：default, smile, smug, laugh, serious, thinking, annoyed, surprised, panicking, sad, embarrassed`);
   lines.push('vote は投票先変更がある場合のみ設定（省略可）');
   lines.push('villager・werewolf は役職持ちが明確に白だし（黒だし）した場合のみ設定する。');
-  lines.push('連投回数は性格や情報量に応じて2,3,4と増える。');
+  lines.push('連投回数は個性や情報量に応じて2,3,4と増える。');
 
   return lines.join('\n');
 }
