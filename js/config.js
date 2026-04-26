@@ -207,7 +207,7 @@ async function loadPersonalitiesFromTsv(tsvPath = 'personality/PromptSheet.tsv')
         return acc;
       }, {});
       const name = (row.name || '').trim();
-      const personality = (row.personality || row.individuality || row.character || '').trim();
+      const personality = (row.personality || '').trim();
       if (!name || !personality) return null;
       return {
         name,

@@ -13,6 +13,33 @@ const PORTRAIT_PATH_PATTERN = /(personality\/portrait\/[^/]+\/)([^./]+)\.(png|jp
 // ポートレート読み込み結果キャッシュ (src -> boolean)
 const _portraitSrcCache = new Map();
 
+function _buildPortraitCandidateSources(src) {
+  const candidates = [];
+  const pushCandidate = (candidate) => {
+    if (candidate && !candidates.includes(candidate)) candidates.push(candidate);
+  };
+
+  const match = src.match(PORTRAIT_PATH_PATTERN);
+  if (!match) {
+    pushCandidate(src);
+    return candidates;
+  }
+
+  const [, dir, status, ext] = match;
+  const alternateExt = ext === 'png' ? 'jpg' : 'png';
+
+  pushCandidate(src);
+  pushCandidate(`${dir}${status}.${alternateExt}`);
+
+  PORTRAIT_STATUS_FALLBACKS.forEach((fallbackStatus) => {
+    if (fallbackStatus === status) return;
+    pushCandidate(`${dir}${fallbackStatus}.png`);
+    pushCandidate(`${dir}${fallbackStatus}.jpg`);
+  });
+
+  return candidates;
+}
+
 /**
  * img 要素にポートレートを非同期で読み込みます。
  * 初期値にグローバルデフォルト画像を設定し、fetch HEAD でキャラクター固有画像の
@@ -25,16 +52,35 @@ function loadPortraitSrc(img, src) {
   if (!(img instanceof HTMLImageElement)) return;
   img.src = globalDefault;
   if (!src || src === globalDefault) return;
-  if (_portraitSrcCache.has(src)) {
-    if (_portraitSrcCache.get(src)) img.src = src;
-    return;
-  }
-  fetch(src, { method: 'HEAD' })
-    .then((r) => {
-      _portraitSrcCache.set(src, r.ok);
-      if (r.ok) img.src = src;
-    })
-    .catch(() => { _portraitSrcCache.set(src, false); });
+  const candidates = _buildPortraitCandidateSources(src);
+
+  const tryNext = (index) => {
+    if (index >= candidates.length) return;
+    const candidate = candidates[index];
+    if (_portraitSrcCache.has(candidate)) {
+      if (_portraitSrcCache.get(candidate)) {
+        img.src = candidate;
+        return;
+      }
+      tryNext(index + 1);
+      return;
+    }
+    fetch(candidate, { method: 'HEAD' })
+      .then((r) => {
+        _portraitSrcCache.set(candidate, r.ok);
+        if (r.ok) {
+          img.src = candidate;
+          return;
+        }
+        tryNext(index + 1);
+      })
+      .catch(() => {
+        _portraitSrcCache.set(candidate, false);
+        tryNext(index + 1);
+      });
+  };
+
+  tryNext(0);
 }
 
 // ポートレート画像の読み込み失敗時の処理（後方互換用。新規コードは loadPortraitSrc を使用）
