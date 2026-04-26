@@ -437,22 +437,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- 0日目: 初日占い結果通達 ---
   async function runDay0SeerReveal() {
-    const seer = gs.players.find((p) => p.role?.id === ROLES.SEER.id);
-    if (!seer) return;
-
-    // 占い師以外で「人間」に見える（=isSeerWerewolfでない）プレイヤーをランダムに選ぶ
-    const targets = gs.players.filter((p) => p.id !== seer.id && !isSeerWerewolf(p.role));
-    if (targets.length === 0) return;
-    const target = targets[Math.floor(Math.random() * targets.length)];
-
-    // 占い師（人間・AI問わず）の初日お告げ結果をゲーム状態に記録する
-    target.seerVerdict = 'white';
+    const initialSeerReveal = gs.prepareInitialSeerReveal();
+    if (!initialSeerReveal) return;
+    const { target, verdict } = initialSeerReveal;
 
     // 人間プレイヤーが占い師の場合のみ結果を表示し、BBSの占い結果アイコンを更新
     if (humanPlayer.role?.id === ROLES.SEER.id) {
-      gs.addSystemPost(`【0日目・初日占い結果】${getPlayerDisplayText(target)} は人間です。（GMより占い師への秘密通達）`);
+      gs.addSystemPost(`【0日目・初日占い結果】${getPlayerDisplayText(target)} は${verdict === 'black' ? '人狼' : '人間'}です。（GMより占い師への秘密通達）`);
       bbs.renderPost(gs.bbsLog[gs.bbsLog.length - 1]);
-      bbs.updatePlayerVerdict(target.id, 'white');
+      bbs.updatePlayerVerdict(target.id, verdict);
     }
     gs.save();
   }

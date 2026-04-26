@@ -158,7 +158,11 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
 
       // PromptSheet.tsv から personality 情報を読み込む
-      await loadPersonalitiesFromTsv();
+      const loaded = await loadPersonalitiesFromTsv();
+      if (!loaded) {
+        window.alert('personality/PromptSheet.tsv の読み込みに失敗したため、ゲームを開始できませんでした。');
+        return;
+      }
 
       const settings = {
         playerName: document.getElementById('player-name').value.trim() || 'あなた',
