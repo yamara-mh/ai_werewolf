@@ -72,12 +72,6 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
 
-  if (storyDirectionText) {
-    lines.push('# ストーリーテラーの進行案');
-    lines.push(`${player.name}: ${storyDirectionText}`);
-    lines.push('');
-  }
-
   lines.push('# 今日のチャット');
   // 人狼チャット（werewolfOnlySecretTalk）を通常チャットに混合して時系列で表示
   // wolfPosts は人狼（大狼）のみ受け取る。それ以外は空配列
@@ -146,6 +140,7 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   lines.push('vote は投票先変更がある場合のみ設定（省略可）');
   lines.push('villager, werewolf は役職持ちが明確に白だし（黒だし）した場合のみ設定する。');
   lines.push('post の配列数は発言の情報量や性格に応じて1～5回ほどにする。');
+  lines.push('');
 
   lines.push('# 出力形式');
   lines.push('必ず以下のJSON形式に従って出力してください:');
