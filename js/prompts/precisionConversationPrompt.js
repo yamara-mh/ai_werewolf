@@ -14,8 +14,9 @@
  * @param {string} teammates         仲間の人狼名（人狼陣営のみ）
  * @param {string} roomLevelPrompt   部屋レベルの補足指示
  * @param {string|null} sharedPartner 共有者の場合、仲間の共有者名（それ以外は null）
+ * @param {string[]} speakingExamples 話し方の例（最大3つ）
  */
-function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPartner) {
+function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPartner, speakingExamples = []) {
   const role = player.role;
   const isWolf = isActualWolf(role);
   const isFox = role?.id === ROLES.FOX.id;
@@ -36,6 +37,11 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
   if (player.speakingStyle)         lines.push(`話し方: ${player.speakingStyle}`);
   if (isWolf && teammates)          lines.push(`仲間の人狼: ${teammates}`);
   if (sharedPartner)                lines.push(`仲間の共有者: ${sharedPartner}`);
+  if (speakingExamples && speakingExamples.length > 0) {
+    lines.push('');
+    lines.push('# 話し方の例');
+    speakingExamples.forEach((talk) => lines.push(`- ${talk}`));
+  }
   return lines.join('\n');
 }
 
@@ -48,6 +54,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {string} params.storyDirectionText ストーリーテラーAIが想定した今回の発言要約
  * @param {string} params.previousDaysSynopsis 前日までのあらすじ
  * @param {Array}  params.todayPosts         今日の公開チャット投稿配列
+ * @param {string|null} params.todaySummary  今日のチャットの要約（前回AIが生成。あれば posts の代わりに使用）
  * @param {Array}  params.wolfPosts          今日の人狼チャット投稿配列（人狼のみ参照可）
  * @param {Array}  params.seerResults        占い師の占い結果配列 [{targetName, isWerewolf}]（占い師のみ参照可）
  * @param {object|null} params.hunterResult  騎士の護衛結果 {guardedName}（騎士のみ参照可）
@@ -55,7 +62,7 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {Array}  params.currentVotes       現在の投票状況 [{voterName, targetName}]
  * @param {Array}  params.unreflectedPosts   前回生成されたがまだチャットに反映されていない投稿配列（省略可）
  */
-function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDirectionText, previousDaysSynopsis, todayPosts, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes, unreflectedPosts }) {
+function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDirectionText, previousDaysSynopsis, todayPosts, todaySummary, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes, unreflectedPosts }) {
   const lines = [];
 
   lines.push('# 生存プレイヤー');
@@ -81,8 +88,10 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   }
 
   if (hunterResult) {
-    lines.push('# 護衛結果（前夜）');
-    lines.push(`${hunterResult.guardedName} を護衛しました`);
+    lines.push('# 護衛結果（全日程）');
+    (hunterResult.guardedNames || (hunterResult.guardedName ? [hunterResult.guardedName] : [])).forEach((name) => {
+      lines.push(`${name} を護衛しました`);
+    });
     lines.push('');
   }
 
@@ -95,6 +104,7 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   }
 
   lines.push('# 今日のチャット');
+  // todaySummary がある場合は要約を表示してトークンを節約する
   // 人狼チャット（werewolfOnlySecretTalk）を通常チャットに混合して時系列で表示
   // wolfPosts は人狼（大狼）のみ受け取る。それ以外は空配列
   const allTodayPosts = [
@@ -104,7 +114,9 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
   
   const hasUnreflectedPosts = unreflectedPosts && Array.isArray(unreflectedPosts) && unreflectedPosts.length > 0;
   
-  if (allTodayPosts.length > 0) {
+  if (todaySummary) {
+    lines.push(todaySummary);
+  } else if (allTodayPosts.length > 0) {
     allTodayPosts.forEach(({ post, isWolf }) => {
       lines.push(isWolf ? _formatWolfPostSimple(post) : _formatPostSimple(post));
     });

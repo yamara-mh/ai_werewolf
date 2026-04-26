@@ -17,10 +17,10 @@ function _appendLlmLog(model, userPrompt, response) {
 
 async function callAI(userPrompt, apiKey, model, options = {}) {
   const { jsonMode = false, maxTokens = 1600, reasoningEffort = 'medium' } = options;
-  const validReasoningEffort = ['low', 'medium', 'high'].includes(reasoningEffort)
+  const validReasoningEffort = ['minimal', 'low', 'medium', 'high'].includes(reasoningEffort)
     ? reasoningEffort
     : 'medium';
-  const reasoningTokenMultiplier = { low: 1, medium: 1.5, high: 2 };
+  const reasoningTokenMultiplier = { minimal: 0.5, low: 1, medium: 1.5, high: 2 };
   const scaledMaxTokens = Math.ceil(maxTokens * (reasoningTokenMultiplier[validReasoningEffort] ?? 1));
 
   const timestamp = new Date().toLocaleTimeString('ja-JP', { hour12: false });
@@ -67,7 +67,7 @@ async function callAI(userPrompt, apiKey, model, options = {}) {
     ],
     max_tokens: scaledMaxTokens,
     temperature: 0.8,
-    reasoning_effort: validReasoningEffort,
+    reasoning_effort: validReasoningEffort === 'minimal' ? 'low' : validReasoningEffort,
   };
   if (jsonMode) openAiBody.response_format = { type: 'json_object' };
 

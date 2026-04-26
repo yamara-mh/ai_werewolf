@@ -213,6 +213,8 @@ class GameState {
     // 騎士が護衛対象を記録（翌日の発言プロンプト用）
     if (hunter && guardedId) {
       hunter.lastGuardedId = guardedId;
+      if (!Array.isArray(hunter.guardedIds)) hunter.guardedIds = [];
+      hunter.guardedIds.push(guardedId);
     }
 
     // 人狼の襲撃先
