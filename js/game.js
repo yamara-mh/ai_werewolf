@@ -26,6 +26,7 @@ class GameState {
     this.logicAiOutput = '';
     // 前日までのあらすじ（夜ターンに更新）
     this.previousDaysSynopsis = '';
+    this.initialSeerReveal = null;
   }
 
   // ゲームの初期化
@@ -97,6 +98,47 @@ class GameState {
     this.players.forEach((player, index) => {
       player.role = shuffled[index] || ROLES.VILLAGER;
     });
+  }
+
+  prepareInitialSeerReveal() {
+    const seer = this.players.find((p) => p.role?.id === ROLES.SEER.id);
+    if (!seer) return null;
+
+    if (this.day > 1 && !this.initialSeerReveal?.targetId) return null;
+
+    if (this.initialSeerReveal?.targetId) {
+      const existingTarget = this.getPlayer(this.initialSeerReveal.targetId);
+      if (existingTarget) {
+        const verdict = this.initialSeerReveal.verdict;
+        if (verdict !== 'white' && verdict !== 'black') {
+          console.warn('initialSeerReveal.verdict が不正です。"white" または "black" が必要です', this.initialSeerReveal);
+          return null;
+        }
+        existingTarget.seerVerdict = verdict;
+        return { target: existingTarget, verdict };
+      }
+    }
+
+    const inferredTarget = this.players.find((p) => p.id !== seer.id && p.seerVerdict === 'white');
+    if (inferredTarget) {
+      this.initialSeerReveal = {
+        targetId: inferredTarget.id,
+        verdict: 'white',
+      };
+      return { target: inferredTarget, verdict: 'white' };
+    }
+
+    const targets = this.players.filter((p) => p.id !== seer.id && !isSeerWerewolf(p.role));
+    if (targets.length === 0) return null;
+
+    const target = targets[Math.floor(Math.random() * targets.length)];
+    const verdict = 'white';
+    target.seerVerdict = verdict;
+    this.initialSeerReveal = {
+      targetId: target.id,
+      verdict,
+    };
+    return { target, verdict };
   }
 
   // BBS投稿を追加

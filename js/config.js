@@ -175,16 +175,8 @@ function buildRoleDeck(totalPlayers, werewolfCount, optionalRoleIds = []) {
   return roles;
 }
 
-// personality/PromptSheet.tsv から読み込んだデータで上書きされます（フォールバック用）
-let AI_PERSONALITIES = [
-  { name: 'ムライ',  personality: '堅物',    firstPersonPronouns: '某',      speakingStyle: '古語。である調' },
-  { name: 'シノブ',  personality: '快活',    firstPersonPronouns: '拙者',    speakingStyle: '古語。ござる調' },
-  { name: 'レイ',    personality: '強がり',  firstPersonPronouns: '我',      speakingStyle: '難解。である調' },
-  { name: 'ルナピ',  personality: '無気力',  firstPersonPronouns: 'アタシ',  speakingStyle: 'くだけた口調。語尾を伸ばす' },
-  { name: 'サマヨ',  personality: '高飛車',  firstPersonPronouns: 'ワタクシ', speakingStyle: '強気。ですわ調' },
-  { name: 'ヒョウタ', personality: '臆病',   firstPersonPronouns: 'おいら',  speakingStyle: '弱気。吃音' },
-  { name: 'マサオ',  personality: '自信家',  firstPersonPronouns: '僕',     speakingStyle: '簡潔にハッキリと話す' },
-];
+// personality/PromptSheet.tsv から読み込んだデータを保持します。空の場合、ゲームは開始できません。
+let AI_PERSONALITIES = [];
 
 /**
  * personality/PromptSheet.tsv を取得・解析して AI_PERSONALITIES を上書きします。

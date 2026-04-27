@@ -778,6 +778,7 @@ class PrecisionConversationAI {
     const gs = this.gameState;
     const { aiApiKey, aiModel, reasoningEffort } = gs.settings;
     const alivePlayers = gs.getAlivePlayers();
+    const initialSeerReveal = gs.prepareInitialSeerReveal();
 
     if (alivePlayers.length === 0) {
       this._storySteps = [];
@@ -822,6 +823,12 @@ class PrecisionConversationAI {
       todayPosts,
       wolfPosts,
       currentVotes,
+      initialSeerReveal: initialSeerReveal
+        ? {
+            targetName: initialSeerReveal.target.name,
+            isWerewolf: initialSeerReveal.verdict === 'black',
+          }
+        : null,
       unreflectedPosts,
     });
 
@@ -984,6 +991,7 @@ class PrecisionConversationAI {
     const isSeer = role?.id === ROLES.SEER.id;
     const isHunter = role?.id === ROLES.HUNTER.id;
     const isMedium = role?.id === ROLES.MEDIUM.id;
+    const hasWhiteWolfRule = gs.players.some((p) => p.role?.id === ROLES.WHITE_WOLF.id);
 
     // 自身を含む生存プレイヤー名
     const alivePlayersText = gs.getAlivePlayers()
@@ -1037,6 +1045,7 @@ class PrecisionConversationAI {
       hunterResult,
       mediumResults,
       currentVotes,
+      hasWhiteWolfRule,
       unreflectedPosts,
     });
   }

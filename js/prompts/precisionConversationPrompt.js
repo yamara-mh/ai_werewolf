@@ -60,9 +60,10 @@ function buildPrecisionSystemPrompt(player, teammates, roomLevelPrompt, sharedPa
  * @param {object|null} params.hunterResult  騎士の護衛結果 {guardedName}（騎士のみ参照可）
  * @param {Array}  params.mediumResults      霊媒師の霊媒結果配列 [{targetName, isWerewolf}]（霊媒師のみ参照可）
  * @param {Array}  params.currentVotes       現在の投票状況 [{voterName, targetName}]
+ * @param {boolean} params.hasWhiteWolfRule  大狼ルールが有効か
  * @param {Array}  params.unreflectedPosts   前回生成されたがまだチャットに反映されていない投稿配列（省略可）
  */
-function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDirectionText, previousDaysSynopsis, todayPosts, todaySummary, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes, unreflectedPosts }) {
+function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDirectionText, previousDaysSynopsis, todayPosts, todaySummary, wolfPosts, seerResults, hunterResult, mediumResults, currentVotes, hasWhiteWolfRule, unreflectedPosts }) {
   const lines = [];
 
   lines.push('# 生存プレイヤー');
@@ -71,6 +72,7 @@ function buildPrecisionSpeechUserPrompt({ player, day, alivePlayersText, storyDi
 
   lines.push('# ルールの補足');
   lines.push('占い師は初日、白判定になる人物を無作為に一人告げられる。');
+  if (hasWhiteWolfRule) lines.push('大狼は占いでは白判定、霊媒では黒判定される。');
   lines.push('会議中いつでも投票、再投票できる。');
   lines.push('全員が投票したら会議は終了する。');
   lines.push('');

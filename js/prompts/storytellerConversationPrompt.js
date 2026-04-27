@@ -1,7 +1,7 @@
 // ストーリーテラーAI用プロンプト
 // 依存: js/prompts/helpers.js (_formatPostSimple, _formatWolfPostSimple)
 
-function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, currentVotes, unreflectedPosts }) {
+function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynopsis, todayPosts, wolfPosts, currentVotes, initialSeerReveal, unreflectedPosts }) {
   const lines = [];
   const toSpeakerName = (post) => (post.playerName === '★システム' ? 'GM' : post.playerName);
   const formatPublicPost = typeof _formatPostSimple === 'function'
@@ -25,6 +25,12 @@ function buildStorytellerConversationPrompt({ day, allPlayers, previousDaysSynop
   lines.push('# 前日までのあらすじ');
   lines.push(previousDaysSynopsis || 'なし');
   lines.push('');
+
+  if (initialSeerReveal?.targetName) {
+    lines.push('# 占い師への秘密通達');
+    lines.push(`初日通達: ${initialSeerReveal.targetName} は${initialSeerReveal.isWerewolf ? '人狼' : '人狼ではない'}`);
+    lines.push('');
+  }
 
   lines.push('# 人物一覧');
   allPlayers.forEach(({ name, role, isAlive, isHuman, personality, firstPersonPronouns, speakingStyle, currentVote }) => {
